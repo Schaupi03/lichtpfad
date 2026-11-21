@@ -78,7 +78,7 @@ svg.i{width:1em;height:1em;vertical-align:-.15em;flex:none}
 .trow{display:grid;grid-template-columns:5.2em minmax(0,1fr) 4.6em;align-items:center;gap:8px}
 .tl{font-weight:800;color:var(--pc);font-size:.9rem}
 .tv{font-size:.85rem;color:var(--muted);text-align:right}
-.cells{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:3px}
+.cells{display:grid;grid-template-columns:repeat(15,minmax(0,1fr));gap:3px}
 .cell{height:24px;border-radius:6px;background:var(--felt-2);border:1px solid var(--line);display:grid;place-items:center;font-size:.7rem;color:var(--muted);position:relative}
 .cell.done{background:color-mix(in srgb,var(--pc) 35%,var(--felt-2));border-color:var(--pc)}
 .cell.here{background:var(--pc);color:#18130d}
@@ -171,6 +171,7 @@ details ul{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;
   .tiles{grid-template-columns:minmax(0,1fr)}
   .trow{grid-template-columns:4.2em minmax(0,1fr) 3.8em}
   .cell{height:20px}
+  .cells{gap:2px}
   .detail{grid-template-columns:84px minmax(0,1fr)}
   .bigcard{width:84px}
 }
@@ -182,21 +183,23 @@ details ul{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <script>
 /* ================= Daten ================= */
-const GOAL=10, D0=10, UNITS=15, FORTS=7;
+const GOAL=14, D0=14, UNITS=15, FORTS=7;
 const SIDE=[{n:'Wanderer',art:'die Wanderer'},{n:'Schatten',art:'der Schatten'}];
 const REG=[
-  {k:'kueste',n:'Küste',x:62,y:160},
-  {k:'nordwald',n:'Nordwald',x:180,y:48},
-  {k:'hochmoor',n:'Hochmoor',x:345,y:48},
-  {k:'seenland',n:'Seenland',x:195,y:160},
-  {k:'steppe',n:'Steppe',x:330,y:160},
-  {k:'suedmark',n:'Südmark',x:240,y:262},
-  {k:'aschegrund',n:'Aschegrund',x:412,y:258}
+  {k:'kueste',n:'Küste',x:62,y:48},
+  {k:'nordwald',n:'Nordwald',x:195,y:48},
+  {k:'hochmoor',n:'Hochmoor',x:405,y:72},
+  {k:'seenland',n:'Seenland',x:120,y:152},
+  {k:'steppe',n:'Steppe',x:292,y:168},
+  {k:'suedmark',n:'Südmark',x:150,y:262},
+  {k:'aschegrund',n:'Aschegrund',x:405,y:262}
 ];
 const RI=Object.fromEntries(REG.map((r,i)=>[r.k,i]));
-const EDGES=[[0,1],[0,3],[1,3],[1,2],[2,4],[3,4],[3,5],[4,5],[4,6],[2,6],[5,6]];
+const EDGES=[[0,1],[1,2],[1,3],[3,2],[3,4],[3,5],[4,2],[4,5],[4,6],[5,6]];
 const ADJ=REG.map((_,i)=>EDGES.filter(e=>e.includes(i)).map(e=>e[0]===i?e[1]:e[0]));
-const HOME=[0,6];
+const HOME=[1,6];
+const ALLR=REG.map((_,i)=>i);
+const REGION_ASK=['units','unitsAny','move','kill','removeFort','grond','retreat'];
 
 const P='<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
 const ICO={
@@ -221,13 +224,24 @@ const ICO={
   waage:'<path d="M12 4v16M8 20h8M4 7h16M6 7l-3 6h6zM18 7l-3 6h6z"/>',
   kompass:'<circle cx="12" cy="12" r="8"/><path d="M15 9l-2 4-4 2 2-4z"/>',
   schwert:'<path d="M12 2v13M8 15h8M12 15v6"/>',
+  anker:'<circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 13a7 7 0 0 0 14 0M8 11h8"/>',
+  glocke:'<path d="M6 17c1-2 1-5 1-7a5 5 0 0 1 10 0c0 2 0 5 1 7zM4 17h16M10 20h4"/>',
+  feder:'<path d="M20 4C10 4 5 10 5 20M20 4c0 8-6 12-12 12M9 12h6"/>',
+  rad:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 4v6M12 14v6M4 12h6M14 12h6"/>',
+  fackel:'<path d="M10 21l-1-11h6l-1 11zM12 10c-3-2-2-5 0-7 2 2 3 5 0 7z"/>',
+  axt:'<path d="M6 21L18 5M14 4c3 0 6 3 6 6l-4-1-3-3z"/>',
+  boot:'<path d="M3 14h18l-3 5H6zM12 14V4l6 8"/>',
+  pfeil:'<path d="M4 20L20 4M14 4h6v6M4 20l2-5M4 20l5-2"/>',
   pfad:'<path d="M9 5h6M10 5V3h4v2M8 7h8l-1 11H9zM12 10v5M9 21h6"/>',
   unit:'<circle cx="12" cy="6" r="3"/><path d="M7 21l2-10h6l2 10z"/>',
   fort:'<path d="M6 21V9h12v12M5 9V4h2.5v2h3V4h3v2h3V4H19v5M10 21v-4h4v4"/>',
+  fortx:'<path d="M6 21V9h12v12M5 9V4h2.5v2h3V4h3v2h3V4H19v5M3 3l18 18"/>',
   move:'<path d="M4 12h14M13 6l6 6-6 6"/>',
   kill:'<circle cx="12" cy="6" r="3"/><path d="M7 21l2-10h6l2 10zM3 3l18 18"/>',
   steal:'<circle cx="12" cy="12" r="8"/><path d="M8 12h8"/>',
-  extra:'<path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/>'
+  extra:'<path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/>',
+  stapel:'<path d="M7 7h11v13H7zM4 4h11v2M4 4v13h2"/>',
+  karte:'<path d="M6 3h12v18H6zM9 8h6M9 12h6"/>'
 };
 const ic=(k,cls='')=>P.replace('class="i"',`class="i ${cls}"`)+ICO[k]+'</svg>';
 const coin=n=>`<span class="coin">${n}</span>`;
@@ -236,120 +250,120 @@ const SK={kraft:'Kraft',klug:'Klugheit',mut:'Mut',list:'List',fuehr:'Führung'};
 const SKK=Object.keys(SK);
 const VOLK={fischer:'Fischer',hirten:'Hirten',koehler:'Köhler',berg:'Bergleute',floesser:'Flößer',kraeuter:'Kräuterleute'};
 const VK=Object.keys(VOLK);
-const CHAIN={stern:'Stern',mond:'Mond',sonne:'Sonne',turm:'Turm',krug:'Krug',schluessel:'Schlüssel',waage:'Waage',kompass:'Kompass',schwert:'Schwert'};
+const CHAIN={stern:'Stern',mond:'Mond',kompass:'Kompass',krug:'Krug',schluessel:'Schlüssel',glocke:'Glocke',anker:'Anker',schwert:'Schwert',turm:'Turm',pfeil:'Pfeil',waage:'Waage',sonne:'Sonne',feder:'Feder',fackel:'Fackel',boot:'Boot',axt:'Axt',rad:'Rad'};
 const COL={grau:{n:'Grau – Fertigkeiten',s:'◆'},gelb:{n:'Gelb – Münzen',s:'●'},blau:{n:'Blau – Pfad',s:'▮'},gruen:{n:'Grün – Völker',s:'▲'},rot:{n:'Rot – Einheiten',s:'✖'},lila:{n:'Lila – Manöver',s:'★'}};
 
 const C=[];
 function card(ch,c,n,cost,eff,cin,cout){C.push({id:C.length,ch,c,n,cost,eff,cin:cin||null,cout:cout||null});}
 const co=(coins,...sk)=>({coins,sk});
-// Kapitel 1
+// Kapitel 1 (23 Karten)
 card(1,'grau','Schmiedeknecht',co(0),{skills:[['kraft']]});
-card(1,'grau','Schreiberin',co(0),{skills:[['klug']]});
+card(1,'grau','Holzfäller',co(0),{skills:[['kraft']]});
 card(1,'grau','Grenzläuferin',co(0),{skills:[['mut']]});
-card(1,'grau','Gaukler',co(1),{skills:[['list']]});
-card(1,'grau','Dorfälteste',co(1),{skills:[['fuehr']]});
-card(1,'gelb','Marktstand',co(0),{coins:2},null,'krug');
-card(1,'gelb','Zollhaus',co(0,'list'),{coins:3},null,'schluessel');
+card(1,'grau','Bergführerin',co(0),{skills:[['mut']]});
+card(1,'grau','Gaukler',co(0),{skills:[['list']]});
+card(1,'grau','Taschendieb',co(0),{skills:[['list']]});
+card(1,'grau','Dorfälteste',co(0),{skills:[['fuehr']]});
+card(1,'grau','Schreiberin',co(0),{skills:[['klug']]});
+card(1,'gelb','Marktstand',co(0),{coins:2});
 card(1,'gelb','Kleiner Hort',co(0),{coins:2});
-card(1,'blau','Wegweiser',co(0),{pfad:1},null,'stern');
-card(1,'blau','Laternenmacher',co(0,'klug'),{pfad:1});
+card(1,'gelb','Wegzoll',co(0),{coins:2});
+card(1,'gelb','Fundstück',co(0),{coins:2});
+card(1,'blau','Wegweiser',co(0),{pfad:1});
+card(1,'blau','Laternenmacher',co(0,'kraft'),{pfad:1},null,'stern');
 card(1,'blau','Nachtwache',co(0,'mut'),{pfad:1},null,'mond');
-card(1,'gruen','Fischerdorf',co(0),{volk:'fischer'});
-card(1,'gruen','Schafweide',co(0,'fuehr'),{volk:'hirten'});
-card(1,'gruen','Kohlenmeiler',co(0,'kraft'),{volk:'koehler'});
-card(1,'gruen','Stollen',co(0),{volk:'berg'});
-card(1,'gruen','Floßlände',co(0,'mut'),{volk:'floesser'});
-card(1,'gruen','Kräutergarten',co(0,'klug'),{volk:'kraeuter'});
-card(1,'rot','Späher',co(0),{units:1,regs:['seenland','steppe']});
-card(1,'rot','Wachtrupp',co(0),{units:1,regs:['nordwald','hochmoor']});
-card(1,'rot','Bogenschützen',co(0,'kraft'),{units:2,regs:['kueste','suedmark']},null,'sonne');
-card(1,'rot','Reiterzug',co(0,'mut'),{units:2,regs:['steppe','aschegrund']});
-card(1,'rot','Landwehr',co(0),{units:1,regs:['suedmark','hochmoor']});
-card(1,'rot','Vorposten',co(0,'fuehr'),{units:2,regs:['nordwald','seenland']},null,'turm');
-// Kapitel 2
-card(2,'grau','Zeughaus',co(2),{skills:[['kraft'],['mut']]});
-card(2,'grau','Bibliothek',co(2),{skills:[['klug'],['list']]});
-card(2,'grau','Ratshalle',co(0,'mut'),{skills:[['klug','fuehr']]},'turm');
-card(2,'grau','Fechtschule',co(0,'list'),{skills:[['kraft','mut']]});
-card(2,'gelb','Handelshaus',co(0,'fuehr'),{coins:4},'krug','waage');
-card(2,'gelb','Schatzkammer',co(0,'klug'),{coins:3},'schluessel');
-card(2,'gelb','Gasthaus',co(0,'mut'),{coins:3});
-card(2,'blau','Sternkarte',co(0,'klug','list'),{pfad:2},'stern','kompass');
-card(2,'blau','Mondlauf',co(0,'mut','fuehr'),{pfad:2},'mond');
-card(2,'blau','Fährmann',co(0),{pfad:1});
-card(2,'blau','Bergpass',co(0,'kraft','kraft'),{pfad:2});
-card(2,'gruen','Fischmarkt',co(0,'list'),{volk:'fischer'});
-card(2,'gruen','Hirtenfest',co(0,'mut'),{volk:'hirten'});
-card(2,'gruen','Köhlerzunft',co(0,'fuehr'),{volk:'koehler'});
-card(2,'gruen','Bergwerk',co(1,'kraft'),{volk:'berg'});
-card(2,'gruen','Flößerzunft',co(0,'klug'),{volk:'floesser'});
-card(2,'gruen','Kräuterhaus',co(0,'list','mut'),{volk:'kraeuter'});
-card(2,'rot','Ritterschaft',co(0,'kraft','mut'),{units:3,regs:['nordwald','steppe']},'sonne','schwert');
-card(2,'rot','Speerträger',co(0,'fuehr'),{units:2,regs:['seenland','hochmoor']});
-card(2,'rot','Turmbesatzung',co(0,'list'),{units:2,regs:['suedmark','steppe']});
-card(2,'rot','Söldner',co(2),{units:2,regs:['kueste','aschegrund']});
-card(2,'rot','Heerhaufen',co(0,'kraft','fuehr','mut'),{units:3,regs:['hochmoor','suedmark']});
-card(2,'rot','Kundschafter',co(0),{units:1,regs:['kueste','nordwald']});
-// Kapitel 3
-card(3,'grau','Akademie',co(3),{skills:[['klug'],['fuehr'],['list']]});
-card(3,'grau','Kampfschule',co(0,'fuehr'),{skills:[['kraft'],['mut']]});
-card(3,'gelb','Großer Markt',co(0,'klug','list'),{coins:5},'waage');
-card(3,'gelb','Fürstenhort',co(0,'fuehr'),{coins:4});
-card(3,'blau','Leuchtfeuer',co(0,'klug','mut','fuehr'),{pfad:3},'kompass');
-card(3,'blau','Geheimer Pfad',co(0,'list','list'),{pfad:2});
-card(3,'blau','Gewaltmarsch',co(0,'kraft','mut'),{pfad:2});
-card(3,'blau','Sternwarte',co(0,'klug','klug','list'),{pfad:3});
-card(3,'gruen','Hafenstadt',co(0,'klug','mut'),{volk:'fischer'});
-card(3,'gruen','Hochalm',co(0,'kraft','fuehr'),{volk:'hirten'});
-card(3,'gruen','Tiefe Minen',co(0,'list','kraft'),{volk:'berg'});
-card(3,'gruen','Waldhüter',co(0,'mut','fuehr'),{volk:'kraeuter'});
-card(3,'rot','Heerbann',co(0,'kraft','kraft','fuehr'),{units:3,regs:['aschegrund','hochmoor']},'schwert');
-card(3,'rot','Reiterei',co(0,'mut','mut','fuehr'),{units:3,regs:['kueste','steppe']});
-card(3,'rot','Belagerer',co(0,'list','kraft'),{units:2,regs:['nordwald','suedmark']});
-card(3,'rot','Leibwache',co(1,'fuehr'),{units:2,regs:['seenland','aschegrund']});
-card(3,'rot','Flussflotte',co(0,'klug','kraft'),{units:2,regs:['kueste','seenland']});
-card(3,'rot','Bergvolk',co(0,'kraft','mut','list'),{units:3,regs:['hochmoor','nordwald']});
-card(3,'lila','Überfall',co(0,'list','mut'),{steal:1,moves:2});
-card(3,'lila','Feldzug',co(0,'fuehr','kraft'),{moves:3});
-card(3,'lila','Hinterhalt',co(0,'list','kraft'),{kill:1,moves:1});
-card(3,'lila','Sabotage',co(0,'list','klug'),{steal:2,kill:1});
-card(3,'lila','Vorstoß',co(0,'fuehr','mut','kraft'),{kill:1,moves:2});
+card(1,'blau','Fährmann',co(1),{pfad:1},null,'kompass');
+card(1,'gruen','Kräutergarten',co(0,'klug'),{volk:'kraeuter'},null,'krug');
+card(1,'gruen','Stollen',co(0,'fuehr'),{volk:'berg'},null,'schluessel');
+card(1,'gruen','Schafweide',co(0,'klug'),{volk:'hirten'},null,'glocke');
+card(1,'gruen','Fischerdorf',co(0,'fuehr'),{volk:'fischer'},null,'anker');
+card(1,'rot','Späher',co(0),{units:1,regs:['kueste','nordwald']},null,'schwert');
+card(1,'rot','Wachtrupp',co(0),{units:1,regs:['seenland','hochmoor']},null,'turm');
+card(1,'rot','Landwehr',co(0,'list'),{units:1,regs:['suedmark','steppe']},null,'pfeil');
+// Kapitel 2 (23 Karten)
+card(2,'grau','Zeughaus',co(1),{skills:[['kraft'],['kraft']]});
+card(2,'grau','Feldscher',co(1),{skills:[['mut'],['mut']]});
+card(2,'grau','Spitzelnetz',co(1),{skills:[['list'],['list']]});
+card(2,'grau','Fechtschule',co(1,'fuehr','klug'),{skills:[['list','kraft','mut']]});
+card(2,'grau','Ratshalle',co(0),{skills:[['fuehr']]});
+card(2,'grau','Bibliothek',co(0),{skills:[['klug']]});
+card(2,'grau','Kanzlei',co(1,'list'),{skills:[['fuehr','klug']]});
+card(2,'gelb','Handelshaus',co(0),{coins:4});
+card(2,'gelb','Gasthaus',co(0),{coins:3},null,'waage');
+card(2,'blau','Fackelzug',co(0,'list','kraft'),{pfad:1});
+card(2,'blau','Sternkarte',co(0,'mut','kraft'),{pfad:1},'stern');
+card(2,'blau','Mondlauf',co(1),{pfad:1},'mond');
+card(2,'blau','Bergpass',co(0,'kraft','mut','mut'),{pfad:2},null,'sonne');
+card(2,'blau','Geheimer Pfad',co(0,'kraft','kraft','klug'),{pfad:2},null,'feder');
+card(2,'gruen','Kräuterhaus',co(0,'mut','fuehr','klug'),{volk:'kraeuter'},'krug');
+card(2,'gruen','Bergwerk',co(0,'kraft','kraft','fuehr'),{volk:'berg'},'schluessel');
+card(2,'gruen','Hirtenfest',co(0,'mut','mut','klug'),{volk:'hirten'},'glocke','fackel');
+card(2,'gruen','Fischmarkt',co(0,'list','list','fuehr'),{volk:'fischer'},'anker','boot');
+card(2,'rot','Speerträger',co(0,'list','kraft','mut'),{units:2,regs:['kueste','steppe']});
+card(2,'rot','Turmbesatzung',co(0,'mut','mut','fuehr'),{units:2,regs:['nordwald','hochmoor']});
+card(2,'rot','Ritterschaft',co(0,'list','list','klug'),{units:2,regs:['aschegrund','steppe']},'schwert','axt');
+card(2,'rot','Söldner',co(0,'kraft','kraft','mut'),{units:2,regs:['kueste','seenland']},'turm','rad');
+card(2,'rot','Bogenschützen',co(0,'list','list','list'),{units:2,regs:['suedmark','aschegrund']},'pfeil');
+// Kapitel 3 (23 Karten)
+card(3,'gelb','Großer Markt',co(0,'list','fuehr','klug'),{coins:5});
+card(3,'gelb','Fürstenhort',co(0,'list','list','mut'),{coins:5},'waage');
+card(3,'blau','Gewaltmarsch',co(0,'kraft','kraft','fuehr'),{pfad:2});
+card(3,'blau','Leuchtfeuer',co(3),{pfad:3});
+card(3,'blau','Sternwarte',co(0,'list','list','mut','mut'),{pfad:2},'kompass');
+card(3,'blau','Bergkamm',co(0,'list','kraft','kraft','kraft'),{pfad:2},'sonne');
+card(3,'blau','Nebelweg',co(0,'list','list','list','mut'),{pfad:2},'feder');
+card(3,'gruen','Flößerzunft',co(0,'mut','mut','fuehr','klug'),{volk:'floesser'});
+card(3,'gruen','Köhlerzunft',co(0,'kraft','kraft','fuehr','klug'),{volk:'koehler'});
+card(3,'gruen','Kohlenmeiler',co(0,'list','list','fuehr','fuehr'),{volk:'koehler'},'fackel');
+card(3,'gruen','Floßlände',co(0,'kraft','kraft','klug','klug'),{volk:'floesser'},'boot');
+card(3,'rot','Heerbann',co(0,'list','list','mut','klug','klug'),{units:3,regs:['kueste','aschegrund']});
+card(3,'rot','Reiterei',co(0,'list','kraft','kraft','mut','mut'),{units:3,regs:['hochmoor','aschegrund']});
+card(3,'rot','Belagerer',co(0,'list','list','list','fuehr','fuehr'),{units:3,regs:['hochmoor','suedmark']});
+card(3,'rot','Bergvolk',co(0,'list','list','mut','mut'),{units:3,regs:['seenland','nordwald']});
+card(3,'rot','Leibwache',co(0,'list','kraft','fuehr','fuehr','klug'),{units:3,regs:['suedmark','nordwald']},'axt');
+card(3,'rot','Flussflotte',co(0,'kraft','kraft','mut','mut'),{units:3,regs:['seenland','steppe']},'rad');
+card(3,'lila','Feldzug',co(0,'mut','mut','fuehr','klug'),{moves:3});
+card(3,'lila','Hinterhalt',co(0,'kraft','kraft','kraft','klug'),{kill:1,moves:2});
+card(3,'lila','Überfall',co(0,'list','kraft','mut','klug'),{steal:1,moves:2});
+card(3,'lila','Vorstoß',co(0,'kraft','kraft','fuehr'),{kill:1,steal:1,moves:1});
+card(3,'lila','Sabotage',co(0,'mut','mut','mut','fuehr'),{kill:1,steal:2});
+card(3,'lila','Brandschatzung',co(0,'kraft','mut','klug','klug'),{kill:2,steal:1});
 
 const TILES=[
-  {r:0,n:'Küstenwacht',sk:['mut','klug'],eff:[{t:'pfad',n:1}],d:'1 Pfadschritt'},
-  {r:1,n:'Waldfeste',sk:['kraft','mut'],eff:[{t:'units',n:2,regs:[1]}],d:'2 Einheiten in den Nordwald'},
-  {r:2,n:'Moorturm',sk:['list','klug'],eff:[{t:'steal',n:2}],d:'Gegenüber verliert 2 Münzen'},
-  {r:3,n:'Seeburg',sk:['klug','fuehr'],eff:[{t:'coins',n:3}],d:'Nimm 3 Münzen'},
-  {r:4,n:'Steppenlager',sk:['fuehr','kraft'],eff:[{t:'extra'}],d:'Führe einen weiteren Zug aus'},
-  {r:5,n:'Grenzburg',sk:['kraft','list'],eff:[{t:'kill'}],d:'Entferne 1 gegnerische Einheit'},
-  {r:6,n:'Aschewarte',sk:['list','fuehr'],eff:[{t:'pfad',n:1},{t:'coins',n:1}],d:'1 Pfadschritt und 1 Münze'}
+  {r:0,n:'Küstenwacht',sk:['kraft','kraft','kraft','fuehr','fuehr','klug'],eff:[{t:'pickVolk'}],d:'Sieh dir die obersten 2 Bündnismarker eines Volks deiner Wahl an und behalte einen'},
+  {r:1,n:'Waldfeste',sk:['kraft','kraft','kraft','mut','mut','fuehr'],eff:[{t:'units',n:2,regs:[1]},{t:'move'},{t:'move'}],d:'2 Einheiten in den Nordwald, dann 2 Bewegungen'},
+  {r:2,n:'Moorturm',sk:['list','kraft','kraft','mut','fuehr','klug'],eff:[{t:'coins',n:5},{t:'move'}],d:'Nimm 5 Münzen, dann 1 Bewegung'},
+  {r:3,n:'Seeburg',sk:['list','list','mut','mut','mut','klug'],eff:[{t:'greyDiscard'},{t:'pfad',n:1}],d:'Lege 1 graue Karte deines Gegenübers ab, dann 1 Pfadschritt'},
+  {r:4,n:'Steppenlager',sk:['list','list','list','fuehr','fuehr','klug'],eff:[{t:'units',n:3,regs:[4]}],d:'3 Einheiten in die Steppe'},
+  {r:5,n:'Grenzburg',sk:['list','list','list','kraft','klug','klug'],eff:[{t:'units',n:1,regs:[5]},{t:'pfad',n:2}],d:'1 Einheit in die Südmark, dann 2 Pfadschritte'},
+  {r:6,n:'Aschewarte',sk:['mut','mut','mut','fuehr','fuehr','klug'],eff:[{t:'discardPlay'}],d:'Ziehe blind 1 Karte aus dem Ablagestapel und spiele sie kostenlos aus'},
+  {r:null,n:'Wegkreuz',promo:true,nofort:true,sk:[],eff:[{t:'shirePlay'}],d:'Spiele 1 offene Karte der Auslage kostenlos aus, auch wenn sie bedeckt ist. Keine Festung'},
+  {r:null,n:'Rammbock',promo:true,sk:[],eff:[{t:'grond'}],d:'Entferne 1 gegnerische Festung. Gegnerische Einheiten dort ziehen geschlossen in ein Nachbargebiet. Dann baust du dort eine Festung und stellst 1 Einheit hin'}
 ];
 const MK=[
-  {v:'fischer',d:'Nimm 3 Münzen.',eff:[{t:'coins',n:3}]},
-  {v:'fischer',d:'Dauerhaft: Fertigkeit Klugheit.',perm:{skill:['klug']}},
-  {v:'fischer',d:'1 Pfadschritt.',eff:[{t:'pfad',n:1}]},
-  {v:'hirten',d:'Stelle 2 Einheiten in ein Gebiet, in dem du vertreten bist.',eff:[{t:'unitsPresent',n:2}]},
+  {v:'kraeuter',d:'Dauerhaft: Jede gelbe Karte gibt dir einen weiteren Zug.',perm:{yellowExtra:1}},
+  {v:'kraeuter',d:'Dauerhaft: Einheiten von roten Karten darfst du in jedes der 7 Gebiete stellen.',perm:{redAny:1}},
+  {v:'kraeuter',d:'Dauerhaft: Einmal pro Zug 1 Fertigkeit deiner Wahl.',perm:{skill:['kraft','klug','mut','list','fuehr']}},
+  {v:'berg',d:'Dauerhaft: Ortsplättchen kosten keine Münzen für deine Festungen.',perm:{tile:1}},
+  {v:'berg',d:'Dauerhaft: Jedes Ortsplättchen gibt dir einen weiteren Zug.',perm:{tileExtra:1}},
+  {v:'berg',d:'Dauerhaft: Jede grüne Karte gibt dir 2 Bewegungen.',perm:{greenMoves:2}},
+  {v:'fischer',d:'Falken-Symbol: zählt als zusätzliches Volk für den Völker-Sieg.',perm:{falke:1}},
+  {v:'fischer',d:'Dauerhaft: Jede blaue Karte gibt dir 1 Einheit in ein Gebiet deiner Wahl.',perm:{blueUnit:1}},
+  {v:'fischer',d:'Dauerhaft: Jede Karte, die du dank Verkettung gratis spielst, gibt dir 3 Münzen.',perm:{chainCoins:3}},
+  {v:'hirten',d:'Dauerhaft: Jede gelbe Karte gibt dir zusätzlich 1 Pfadschritt.',perm:{yellowPfad:1}},
   {v:'hirten',d:'Dauerhaft: Rote Karten bringen 1 Einheit mehr.',perm:{red:1}},
-  {v:'hirten',d:'Dein Gegenüber verliert 2 Münzen.',eff:[{t:'steal',n:2}]},
-  {v:'koehler',d:'Entferne 2 gegnerische Einheiten.',eff:[{t:'kill'},{t:'kill'}]},
-  {v:'koehler',d:'Dauerhaft: Fertigkeit Kraft oder Mut (pro Zug eine davon).',perm:{skill:['kraft','mut']}},
-  {v:'koehler',d:'Führe sofort einen weiteren Zug aus.',eff:[{t:'extra'}]},
-  {v:'berg',d:'Nimm 4 Münzen.',eff:[{t:'coins',n:4}]},
-  {v:'berg',d:'Dauerhaft: Verkaufen bringt 1 Münze mehr.',perm:{sell:1}},
-  {v:'berg',d:'Falken-Symbol (zählt als zusätzliches Volk für den Völker-Sieg) und 1 Münze.',perm:{falke:1},eff:[{t:'coins',n:1}]},
-  {v:'floesser',d:'2 Bewegungen.',eff:[{t:'move'},{t:'move'}]},
-  {v:'floesser',d:'2 Pfadschritte.',eff:[{t:'pfad',n:2}]},
-  {v:'floesser',d:'Dauerhaft: Blaue Karten bringen 1 Pfadschritt mehr.',perm:{blue:1}},
-  {v:'kraeuter',d:'Dauerhaft: Fertigkeit List oder Führung (pro Zug eine davon).',perm:{skill:['list','fuehr']}},
-  {v:'kraeuter',d:'Dauerhaft: Ortsplättchen kosten keine Münzen für deine Festungen.',perm:{tile:1}},
-  {v:'kraeuter',d:'Entferne 1 gegnerische Einheit und nimm 1 Münze.',eff:[{t:'kill'},{t:'coins',n:1}]}
+  {v:'hirten',d:'Dauerhaft: Verkaufen bringt doppelt so viele Münzen (2/4/6).',perm:{sellDouble:1}},
+  {v:'floesser',d:'Sofort: Führe einen weiteren Zug aus.',eff:[{t:'extra'}]},
+  {v:'floesser',d:'Sofort: Entferne 1 gegnerische Festung.',eff:[{t:'removeFort'}]},
+  {v:'floesser',d:'Sofort: Wähle 3-mal zwischen „1 gegnerische Einheit entfernen“, „Gegenüber verliert 1 Münze“ und „1 Bewegung“.',eff:[{t:'choice3',n:3}]},
+  {v:'koehler',d:'Sofort: 2 Pfadschritte.',eff:[{t:'pfad',n:2}]},
+  {v:'koehler',d:'Sofort: Stelle 2 Einheiten in Gebiete deiner Wahl (zusammen oder getrennt).',eff:[{t:'unitsAny',n:1},{t:'unitsAny',n:1}]},
+  {v:'koehler',d:'Sofort: Ziehe blind 1 Karte aus dem Ablagestapel und spiele sie kostenlos aus.',eff:[{t:'discardPlay'}]}
 ];
 MK.forEach((m,i)=>m.id=i);
-// Bonusfelder auf dem Pfad (Fortschritt → Wirkung)
-const BON=[
-  {3:{eff:[{t:'coins',n:2}],d:'2 Münzen'},6:{eff:[{t:'unitsPresent',n:1}],d:'1 Einheit in ein Gebiet, in dem du vertreten bist'},8:{eff:[{t:'kill'}],d:'Entferne 1 gegnerische Einheit'}},
-  {3:{eff:[{t:'coins',n:2}],d:'2 Münzen'},6:{eff:[{t:'kill'}],d:'Entferne 1 gegnerische Einheit'},8:{eff:[{t:'steal',n:2}],d:'Gegenüber verliert 2 Münzen'}}
-];
+// Bonusfelder auf dem Pfad (Fortschritt → Wirkung), für beide Seiten gleich
+const BONS={3:{eff:[{t:'coins',n:1}],d:'1 Münze'},6:{eff:[{t:'unitsAny',n:1}],d:'1 Einheit in ein Gebiet deiner Wahl'},9:{eff:[{t:'extra'}],d:'Ein weiterer Zug'},12:{eff:[{t:'removeFort'}],d:'Entferne 1 gegnerische Festung'}};
+const BON=[BONS,BONS];
 const LAYOUT=[
   {rows:[[-1,1],[-2,0,2],[-3,-1,1,3],[-4,-2,0,2,4],[-5,-3,-1,1,3,5]],up:[1,0,1,0,1]},
   {rows:[[-5,-3,-1,1,3,5],[-4,-2,0,2,4],[-3,-1,1,3],[-2,0,2],[-1,1]],up:[1,0,1,0,1]},
@@ -366,7 +380,7 @@ const DEVICE_KEY='lichtpfad-geraet'+(params.get('geraet')?'-'+params.get('geraet
 let S=null;
 let mode='setup';
 const net={clients:[],status:[],gameId:null,myId:null,ended:false,endedRev:-1,notFound:false,libMissing:false};
-const ui={confirmQuit:false,names:['',''],seat:0,sel:null,turnKey:'',toast:'',copied:false};
+const ui={confirmQuit:false,names:['',''],seat:0,promo:false,sel:null,turnKey:'',toast:'',copied:false};
 
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const nm=p=>esc(S.names[p]);
@@ -384,8 +398,8 @@ const plural=(n,a,b)=>n===1?a:b;
 
 /* ================= Hilfsrechnungen ================= */
 function perm(side){
-  const o={skill:[],red:0,sell:0,blue:0,tile:0,falke:0};
-  S.markers[side].forEach(id=>{const p=MK[id].perm;if(!p)return;if(p.skill)o.skill.push(p.skill);['red','sell','blue','tile','falke'].forEach(k=>{if(p[k])o[k]+=p[k];});});
+  const o={skill:[],red:0,tile:0,falke:0,yellowExtra:0,redAny:0,tileExtra:0,greenMoves:0,blueUnit:0,chainCoins:0,yellowPfad:0,sellDouble:0};
+  S.markers[side].forEach(id=>{const p=MK[id].perm;if(!p)return;Object.keys(p).forEach(k=>{if(k==='skill')o.skill.push(p.skill);else o[k]=(o[k]||0)+p[k];});});
   return o;
 }
 function skillItems(side){
@@ -415,7 +429,7 @@ const unitsOn=side=>S.units[side].reduce((a,b)=>a+b,0);
 function tileCost(side,ti){
   const t=TILES[ti];
   const missing=t.sk.length-maxMatch(t.sk,skillItems(side));
-  const fc=perm(side).tile?0:fortsOn(side);
+  const fc=perm(side).tile||t.nofort?0:fortsOn(side);
   return {total:missing+fc,missing,fc};
 }
 function volkCounts(side){const c={};S.played[side].forEach(id=>{const v=C[id].eff.volk;if(v)c[v]=(c[v]||0)+1;});return c;}
@@ -430,23 +444,24 @@ function avail(i){
 function log(msg){S.log.unshift(msg);S.log=S.log.slice(0,8);}
 
 /* ================= Spiellogik ================= */
-function newGame(names,seats){
+function newGame(names,seats,promo){
   const rev=(S&&S.rev)||0;
-  S={online:!!seats,seats:seats||null,names,chapter:1,current:1,coins:[3,2],f:0,d:D0,
+  S={online:!!seats,seats:seats||null,names,chapter:1,current:1,coins:[3,2],f:0,d:D0,promo:!!promo,
      units:[Array(7).fill(0),Array(7).fill(0)],forts:[Array(7).fill(0),Array(7).fill(0)],
      played:[[],[]],markers:[[],[]],pair:[{},{}],triple:[false,false],stacks:{},
-     tileDeck:shuffle([0,1,2,3,4,5,6]),tilesOpen:[],tiles:[[],[]],slots:[],out:[],
+     tileDeck:shuffle([0,1,2,3,4,5,6]),tilesOpen:[],tiles:[[],[]],slots:[],out:[],discard:[],
      queue:[],ask:null,extra:false,result:null,log:[],phase:'turn',rev};
   S.units[0][HOME[0]]=2; S.units[1][HOME[1]]=2;
   VK.forEach(v=>{S.stacks[v]=shuffle(MK.filter(m=>m.v===v).map(m=>m.id));});
   setupChapter();
+  if(S.promo){S.tileDeck.push(7,8);shuffle(S.tileDeck);}
   log(`Kapitel 1 beginnt. <b>${nm(1)}</b> (Schatten) fängt an.`);
 }
 function setupChapter(){
   const deck=shuffle(C.filter(c=>c.ch===S.chapter).map(c=>c.id));
   const L=LAYOUT[S.chapter-1];S.slots=[];let k=0;
   L.rows.forEach((row,ri)=>row.forEach(x=>S.slots.push({c:deck[k++],row:ri,x,up:!!L.up[ri],gone:false})));
-  S.out=deck.slice(k);
+  S.out=deck.slice(k);S.discard.push(...S.out);
   while(S.tilesOpen.length<3&&S.tileDeck.length)S.tilesOpen.push(S.tileDeck.pop());
 }
 function end(winner,reason){S.result={winner,reason};S.phase='over';S.queue=[];S.ask=null;}
@@ -483,15 +498,31 @@ function pfadStep(side,n){
   log(`<b>${nm(side)}</b>: ${n} ${plural(n,'Pfadschritt','Pfadschritte')} (${side===0?`Laterne auf ${S.f} von ${GOAL}`:`Abstand des Schattens noch ${S.d}`}).`);
   return add;
 }
-function cardEffects(side,card){
+function cardEffects(side,card,viaChain){
   const e=card.eff,p=perm(side),q=[];
   if(e.coins)q.push({t:'coins',n:e.coins});
-  if(e.pfad)q.push({t:'pfad',n:e.pfad+p.blue});
-  if(e.units)q.push({t:'units',n:e.units+p.red,regs:e.regs.map(k=>RI[k])});
+  if(card.c==='gelb'&&p.yellowPfad)q.push({t:'pfad',n:p.yellowPfad});
+  if(e.pfad)q.push({t:'pfad',n:e.pfad});
+  if(card.c==='blau'&&p.blueUnit)q.push({t:'unitsAny',n:1});
+  if(e.units)q.push({t:'units',n:e.units+p.red,regs:p.redAny?ALLR.slice():e.regs.map(k=>RI[k])});
   if(e.steal)q.push({t:'steal',n:e.steal});
   for(let i=0;i<(e.kill||0);i++)q.push({t:'kill'});
   for(let i=0;i<(e.moves||0);i++)q.push({t:'move'});
+  if(card.c==='gruen')for(let i=0;i<p.greenMoves;i++)q.push({t:'move'});
+  if(viaChain&&p.chainCoins)q.push({t:'coins',n:p.chainCoins});
+  if(card.c==='gelb'&&p.yellowExtra)q.push({t:'extra'});
   return q;
+}
+function playFree(side,id,how){
+  S.played[side].push(id);const card=C[id];
+  log(`<b>${nm(side)}</b> spielt <b>${esc(card.n)}</b> kostenlos aus (${how}).`);
+  const q=cardEffects(side,card,false);
+  if(card.eff.volk)q.push(...allianceChecks(side));
+  S.queue.unshift(...q);
+}
+function removeFort(side,r){
+  const o=1-side;S.forts[o][r]=0;
+  log(`<b>${nm(side)}</b> zerstört die Festung von ${nm(o)} in ${REG[r].n}.`);
 }
 function allianceChecks(side){
   const c=volkCounts(side),out=[];
@@ -506,19 +537,27 @@ function optionsFor(e){
     case 'units':
       if(UNITS-unitsOn(side)<=0)return [];
       return e.regs.length===1?null:e.regs.slice();
-    case 'unitsPresent':{
+    case 'unitsAny':
       if(UNITS-unitsOn(side)<=0)return [];
-      const r=REG.map((_,i)=>i).filter(i=>present(side,i));
-      return r.length?r:REG.map((_,i)=>i);
-    }
+      return ALLR.slice();
     case 'move':
-      if(e.from==null)return REG.map((_,i)=>i).filter(i=>S.units[side][i]>0);
+      if(e.from==null)return ALLR.filter(i=>S.units[side][i]>0);
       return ADJ[e.from].slice();
-    case 'kill':return REG.map((_,i)=>i).filter(i=>S.units[o][i]>0);
+    case 'kill':return ALLR.filter(i=>S.units[o][i]>0);
+    case 'removeFort':return ALLR.filter(i=>S.forts[o][i]>0);
+    case 'grond':return ALLR.filter(i=>S.forts[o][i]>0);
+    case 'retreat':return ADJ[e.r].slice();
     case 'alliance':{
       if(e.mode==='pair')return S.stacks[e.v[0]].slice(-2).reverse();
       return e.v.map(v=>S.stacks[v][S.stacks[v].length-1]).filter(x=>x!=null);
     }
+    case 'pickVolk':return VK.filter(v=>S.stacks[v].length>0);
+    case 'greyDiscard':return S.played[o].filter(id=>C[id].c==='grau');
+    case 'choice3':{
+      const r=[];if(ALLR.some(i=>S.units[o][i]>0))r.push('kill');r.push('steal');
+      if(ALLR.some(i=>S.units[side][i]>0))r.push('move');return r;
+    }
+    case 'shirePlay':return S.slots.map((s,i)=>i).filter(i=>!S.slots[i].gone&&S.slots[i].up);
     default:return null;
   }
 }
@@ -528,9 +567,16 @@ function applyAuto(e){
     case 'coins':S.coins[side]+=e.n;log(`<b>${nm(side)}</b> nimmt ${e.n} ${plural(e.n,'Münze','Münzen')}.`);break;
     case 'steal':{const k=Math.min(e.n,S.coins[o]);S.coins[o]-=k;log(`<b>${nm(o)}</b> verliert ${k} ${plural(k,'Münze','Münzen')}.`);break;}
     case 'extra':S.extra=true;break;
-    case 'fort':S.forts[side][e.r]=1;log(`<b>${nm(side)}</b> baut eine Festung in ${REG[e.r].n}.`);break;
+    case 'fort':
+      if(fortsOn(side)>=FORTS){log(`<b>${nm(side)}</b> hat keine Festung mehr im Vorrat.`);break;}
+      S.forts[side][e.r]=1;log(`<b>${nm(side)}</b> baut eine Festung in ${REG[e.r].n}.`);break;
     case 'units':placeUnits(side,e.regs[0],e.n);break;
     case 'pfad':{const add=pfadStep(side,e.n);S.queue.unshift(...add);break;}
+    case 'discardPlay':{
+      if(!S.discard.length){log('Der Ablagestapel ist leer.');break;}
+      const k=Math.floor(Math.random()*S.discard.length);const id=S.discard.splice(k,1)[0];
+      playFree(side,id,'blind aus dem Ablagestapel gezogen');break;
+    }
   }
 }
 function runQueue(){
@@ -542,7 +588,7 @@ function runQueue(){
     if(opts===null){S.queue.shift();applyAuto(e);if(checkWin())return;continue;}
     if(!opts.length){S.queue.shift();continue;}
     if(e.t==='alliance'&&opts.length===1){S.queue.shift();takeMarker(S.current,opts[0]);if(checkWin())return;continue;}
-    S.ask={t:e.t,opts,from:e.from==null?null:e.from,n:e.n||0,mode:e.mode||null};
+    S.ask={t:e.t,opts,from:e.from==null?null:e.from,n:e.n||0,mode:e.mode||null,r:e.r==null?null:e.r};
     S.phase='ask';return;
   }
   S.ask=null;finishTurn();
@@ -550,7 +596,8 @@ function runQueue(){
 function takeMarker(side,id){
   const m=MK[id],st=S.stacks[m.v];st.splice(st.indexOf(id),1);
   S.markers[side].push(id);
-  log(`<b>${nm(side)}</b> schließt ein Bündnis mit den ${VOLK[m.v]}: ${m.d}`);
+  const dat={fischer:'Fischern',hirten:'Hirten',koehler:'Köhlern',berg:'Bergleuten',floesser:'Flößern',kraeuter:'Kräuterleuten'};
+  log(`<b>${nm(side)}</b> schließt ein Bündnis mit den ${dat[m.v]}: ${m.d}`);
   if(m.eff)S.queue.unshift(...clone(m.eff));
 }
 function choose(v){
@@ -558,13 +605,40 @@ function choose(v){
   if(!e||!S.ask||!S.ask.opts.includes(v))return;
   S.ask=null;S.phase='resolve';
   switch(e.t){
-    case 'units':case 'unitsPresent':S.queue.shift();placeUnits(side,v,e.n);break;
+    case 'units':case 'unitsAny':S.queue.shift();placeUnits(side,v,e.n);break;
     case 'move':
       if(e.from==null){e.from=v;}
       else{S.queue.shift();moveUnit(side,e.from,v);}
       break;
     case 'kill':S.queue.shift();S.units[o][v]--;log(`<b>${nm(side)}</b> entfernt eine Einheit von ${nm(o)} in ${REG[v].n}.`);break;
     case 'alliance':S.queue.shift();takeMarker(side,v);break;
+    case 'removeFort':S.queue.shift();removeFort(side,v);break;
+    case 'grond':{
+      S.queue.shift();removeFort(side,v);
+      const q=[];if(S.units[o][v]>0)q.push({t:'retreat',r:v});
+      q.push({t:'fort',r:v},{t:'units',n:1,regs:[v]});
+      S.queue.unshift(...q);break;
+    }
+    case 'retreat':{
+      S.queue.shift();const n=S.units[o][e.r];S.units[o][e.r]=0;S.units[o][v]+=n;
+      let msg=`${n} ${plural(n,'Einheit','Einheiten')} von <b>${nm(o)}</b> ziehen von ${REG[e.r].n} nach ${REG[v].n}`;
+      const k=Math.min(S.units[side][v],S.units[o][v]);
+      if(k>0){S.units[side][v]-=k;S.units[o][v]-=k;msg+=` – Kampf: je ${k} entfernt`;}
+      log(msg+'.');break;
+    }
+    case 'pickVolk':S.queue.shift();S.queue.unshift({t:'alliance',mode:'pair',v:[v]});log(`<b>${nm(side)}</b> sieht sich die Bündnismarker der ${VOLK[v]} an.`);break;
+    case 'greyDiscard':{
+      S.queue.shift();const pl=S.played[o];pl.splice(pl.indexOf(v),1);S.discard.push(v);
+      log(`<b>${nm(side)}</b> lässt ${nm(o)} die Karte <b>${esc(C[v].n)}</b> ablegen.`);break;
+    }
+    case 'choice3':{
+      S.queue.shift();const q=[{t:v==='steal'?'steal':v,n:1}];
+      if(e.n>1)q.push({t:'choice3',n:e.n-1});
+      S.queue.unshift(...q);break;
+    }
+    case 'shirePlay':{
+      S.queue.shift();const sl=S.slots[v];sl.gone=true;playFree(side,sl.c,'Wegkreuz');break;
+    }
   }
   if(!checkWin())runQueue();
 }
@@ -577,13 +651,13 @@ function playCard(i){
   const side=S.current,sl=S.slots[i],card=C[sl.c],cost=cardCost(side,card);
   S.coins[side]-=cost.total;sl.gone=true;S.played[side].push(card.id);
   log(`<b>${nm(side)}</b> spielt <b>${esc(card.n)}</b> aus${cost.chain?' (kostenlos dank Verkettung)':cost.total?` (zahlt ${cost.total} ${plural(cost.total,'Münze','Münzen')})`:''}.`);
-  S.queue=cardEffects(side,card);
+  S.queue=cardEffects(side,card,cost.chain);
   if(card.eff.volk)S.queue.push(...allianceChecks(side));
   S.phase='resolve';if(!checkWin())runQueue();
 }
 function sellCard(i){
-  const side=S.current,sl=S.slots[i],n=S.chapter+perm(side).sell;
-  sl.gone=true;S.coins[side]+=n;
+  const side=S.current,sl=S.slots[i],n=sellValue(side);
+  sl.gone=true;S.coins[side]+=n;S.discard.push(sl.c);
   log(`<b>${nm(side)}</b> verkauft eine Karte für ${n} ${plural(n,'Münze','Münzen')}.`);
   S.queue=[];S.phase='resolve';runQueue();
 }
@@ -591,8 +665,11 @@ function takeTile(ti){
   const side=S.current,t=TILES[ti],cost=tileCost(side,ti);
   S.coins[side]-=cost.total;S.tilesOpen=S.tilesOpen.filter(x=>x!==ti);S.tiles[side].push(ti);
   log(`<b>${nm(side)}</b> nimmt das Ortsplättchen <b>${t.n}</b>${cost.total?` (zahlt ${cost.total})`:''}.`);
-  S.queue=[{t:'fort',r:t.r},...clone(t.eff)];S.phase='resolve';if(!checkWin())runQueue();
+  S.queue=[...(t.r!=null&&!t.nofort?[{t:'fort',r:t.r}]:[]),...clone(t.eff)];
+  if(perm(side).tileExtra)S.queue.push({t:'extra'});
+  S.phase='resolve';if(!checkWin())runQueue();
 }
+const sellValue=side=>S.chapter*(perm(side).sellDouble?2:1);
 function finishTurn(){
   S.slots.forEach((s,i)=>{if(!s.up&&avail(i))s.up=true;});
   if(S.result)return;
@@ -609,7 +686,13 @@ function finalScore(){
   if(a===b)end(null,'gleich');else end(a>b?0:1,'gebiete');
 }
 function canPlay(side,i){return S.phase==='turn'&&S.current===side&&avail(i)&&S.slots[i].up&&cardCost(side,C[S.slots[i].c]).total<=S.coins[side];}
-function canTile(side,ti){return S.phase==='turn'&&S.current===side&&S.tilesOpen.includes(ti)&&fortsOn(side)<FORTS&&tileCost(side,ti).total<=S.coins[side];}
+function tileBlock(side,ti){
+  const t=TILES[ti];
+  if(!t.nofort&&fortsOn(side)>=FORTS)return 'Du hast keine Festung mehr im Vorrat.';
+  if(t.eff[0].t==='grond'&&!ALLR.some(i=>S.forts[1-side][i]>0))return 'Dein Gegenüber hat noch keine Festung.';
+  return '';
+}
+function canTile(side,ti){return S.phase==='turn'&&S.current===side&&S.tilesOpen.includes(ti)&&!tileBlock(side,ti)&&tileCost(side,ti).total<=S.coins[side];}
 
 /* ================= Verbindung ================= */
 const topic=()=>TOPIC_PREFIX+net.gameId;
@@ -727,9 +810,9 @@ function pbarHTML(side,isMe){
 function trackHTML(){
   const row=(side,label,val,txt)=>{
     let cells='';
-    for(let p=0;p<=10;p++){
+    for(let p=0;p<=GOAL;p++){
       const b=BON[side][p];const v=prog(side);
-      cells+=`<span class="cell${p<v?' done':''}${p===v?' here':''}${p===10?' goal':''}${b&&v>=p?' got':''}" title="${b?'Bonus: '+b.d:''}">${p===v?ic(side?'mond':'pfad'):p===10?ic(side?'unit':'turm'):''}${b?'<span class="bn">+</span>':''}</span>`;
+      cells+=`<span class="cell${p<v?' done':''}${p===v?' here':''}${p===GOAL?' goal':''}${b&&v>=p?' got':''}" title="${b?'Bonus: '+b.d:''}">${p===v?ic(side?'mond':'pfad'):p===GOAL?ic(side?'unit':'turm'):''}${b?'<span class="bn">+</span>':''}</span>`;
     }
     return `<div class="trow p${side}"><span class="tl">${label}</span><div class="cells">${cells}</div><span class="tv">${txt}</span></div>`;
   };
@@ -759,7 +842,7 @@ function mapHTML(hot){
 function tilesHTML(){
   const me=actorSeat();
   const t=S.tilesOpen.map(ti=>{const x=TILES[ti];return `<button class="tile" data-act="tile" data-t="${ti}" aria-pressed="${ui.sel&&ui.sel.k==='tile'&&ui.sel.t===ti}">
-    <span class="tn">${ic('fort')} ${esc(x.n)}</span><span class="tr">Festung in ${REG[x.r].n}</span>
+    <span class="tn">${ic('fort')} ${esc(x.n)}</span><span class="tr">${x.r!=null?'Festung in '+REG[x.r].n:x.nofort?'Zusatz · keine Festung':'Zusatz · Festung beim Gegner'}</span>
     <span class="tc">${x.sk.map(s=>ic(s)).join('')}${me>=0&&S.current===me?`<span class="muted" style="font-size:.78rem"> · kostet dich ${tileCost(me,ti).total}</span>`:''}</span>
     <span class="te">${x.d}</span></button>`;}).join('');
   return `<section class="panel"><p class="eyebrow">Ortsplättchen</p><div class="tiles">${t||'<span class="none">Diese Runde keine mehr offen – im nächsten Kapitel werden neue aufgedeckt.</span>'}</div></section>`;
@@ -796,7 +879,7 @@ function detailHTML(){
     if(myTurn){
       const c=cardCost(me,card);
       pay=c.chain?'Für dich kostenlos (Verkettung).':`Für dich: ${c.total} ${plural(c.total,'Münze','Münzen')}${c.missing?` (darin ${c.missing} für fehlende ${plural(c.missing,'Fertigkeit','Fertigkeiten')})`:''}. Du hast ${S.coins[me]}.`;
-      const n=S.chapter+perm(me).sell;
+      const n=sellValue(me);
       btns=`<div class="row"><button class="btn p${me}" data-act="play" ${canPlay(me,ui.sel.i)?'':'disabled'}>Ausspielen${c.total?` (−${c.total})`:''}</button><button class="btn ghost" data-act="sell">Verkaufen (+${n})</button><button class="link" data-act="unsel">Schließen</button></div>`;
     } else btns=`<div class="row"><button class="link" data-act="unsel">Schließen</button></div>`;
     return `<section class="panel"><div class="detail"><div class="bigcard"><span class="kc c-${card.c}">${cardInner(card)}</span></div>
@@ -807,12 +890,12 @@ function detailHTML(){
   if(ui.sel.k==='tile'){
     const ti=ui.sel.t;if(!S.tilesOpen.includes(ti)){ui.sel=null;return '';}
     const t=TILES[ti];let pay='',btns='';
-    if(myTurn){const c=tileCost(me,ti);pay=`Für dich: ${c.total} ${plural(c.total,'Münze','Münzen')} (${c.missing} für fehlende Fertigkeiten, ${c.fc} für deine Festungen). Du hast ${S.coins[me]}.`;
+    if(myTurn){const c=tileCost(me,ti),bl=tileBlock(me,ti);pay=`Für dich: ${c.total} ${plural(c.total,'Münze','Münzen')} (${c.missing} für fehlende Fertigkeiten, ${c.fc} für deine Festungen). Du hast ${S.coins[me]}.${bl?' <b>'+bl+'</b>':''}`;
       btns=`<div class="row"><button class="btn p${me}" data-act="taketile" ${canTile(me,ti)?'':'disabled'}>Nehmen${c.total?` (−${c.total})`:''}</button><button class="link" data-act="unsel">Schließen</button></div>`;}
     else btns=`<div class="row"><button class="link" data-act="unsel">Schließen</button></div>`;
     return `<section class="panel"><div class="dl"><span class="ty">Ortsplättchen</span><h3>${ic('fort')} ${esc(t.n)}</h3>
-      <p><b>Baue eine Festung in ${REG[t.r].n}. ${t.d}.</b></p>
-      <p class="muted">Kosten: ${skText(t.sk)}, dazu 1 Münze pro Festung, die du schon auf der Karte hast.</p>${pay?`<p>${pay}</p>`:''}${btns}</div></section>`;
+      <p><b>${t.r!=null?`Baue eine Festung in ${REG[t.r].n}. `:''}${t.d}.</b></p>
+      <p class="muted">${t.promo?(t.nofort?'Zusatzplättchen. Kosten: keine Fertigkeiten (eigene Annahme) und keine Münzen für Festungen.':'Zusatzplättchen. Kosten: keine Fertigkeiten (eigene Annahme), aber 1 Münze pro Festung, die du schon auf der Karte hast.'):`Kosten: ${skText(t.sk)}, dazu 1 Münze pro Festung, die du schon auf der Karte hast.`}</p>${pay?`<p>${pay}</p>`:''}${btns}</div></section>`;
   }
   return '';
 }
@@ -820,7 +903,15 @@ function askHTML(){
   const a=S.ask,side=S.current;
   const rb=opts=>`<div class="row">${opts.map(r=>`<button class="btn ghost small" data-act="region" data-r="${r}">${REG[r].n}</button>`).join('')}</div>`;
   let title='',body='',extra='';
-  if(a.t==='units'||a.t==='unitsPresent'){title=`Wohin mit ${a.n} ${plural(a.n,'Einheit','Einheiten')}?`;body=`Tippe ein leuchtendes Gebiet auf der Karte an.`+rb(a.opts);}
+  const ob=(list,label)=>'<div class="opts">'+list.map(v=>`<button class="opt" data-act="pick" data-v="${v}">${label(v)}</button>`).join('')+'</div>';
+  if(a.t==='units'||a.t==='unitsAny'){title=`Wohin mit ${a.n} ${plural(a.n,'Einheit','Einheiten')}?`;body=`Tippe ein leuchtendes Gebiet auf der Karte an.`+rb(a.opts);}
+  else if(a.t==='removeFort'){title='Gegnerische Festung entfernen';body='Wähle das Gebiet.'+rb(a.opts);}
+  else if(a.t==='grond'){title='Rammbock: welche Festung?';body='Wähle die gegnerische Festung, die du zerstörst. Danach baust du dort selbst eine und stellst 1 Einheit hin.'+rb(a.opts);}
+  else if(a.t==='retreat'){title=`Rückzug aus ${REG[a.r].n}`;body='Die gegnerischen Einheiten ziehen geschlossen in ein Nachbargebiet. Du bestimmst, wohin.'+rb(a.opts);}
+  else if(a.t==='pickVolk'){title='Küstenwacht: welches Volk?';body='Du siehst die obersten 2 Bündnismarker dieses Volks und behältst einen.'+ob(a.opts,v=>`<span class="chip vk">${ic(v)}</span><span><b>${VOLK[v]}</b> (${S.stacks[v].length} ${plural(S.stacks[v].length,'Marker','Marker')} übrig)</span>`);}
+  else if(a.t==='greyDiscard'){title='Seeburg: welche graue Karte?';body='Dein Gegenüber legt diese Karte ab und verliert ihre Fertigkeit.'+ob(a.opts,id=>`<span class="chip sk">${C[id].eff.skills.map(it=>it.map(s=>ic(s)).join('/')).join(' ')}</span><span><b>${esc(C[id].n)}</b><br>${effText(C[id])}</span>`);}
+  else if(a.t==='choice3'){title=`Wähle eine Wirkung (noch ${a.n})`;body=ob(a.opts,v=>({kill:`${ic('kill')}<span>1 gegnerische Einheit entfernen</span>`,steal:`${ic('steal')}<span>Gegenüber verliert 1 Münze</span>`,move:`${ic('move')}<span>1 Bewegung</span>`})[v]);}
+  else if(a.t==='shirePlay'){title='Wegkreuz: welche Karte?';body='Du spielst eine offen liegende Karte kostenlos aus, auch wenn sie noch bedeckt ist.'+ob(a.opts,i=>{const c=C[S.slots[i].c];return `<span class="chip">${COL[c.c].s}</span><span><b>${esc(c.n)}</b><br>${effText(c)}</span>`;});}
   else if(a.t==='move'){
     if(a.from==null){title='Bewegung: Welche Einheit?';body='Wähle das Gebiet, aus dem eine deiner Einheiten losziehen soll.'+rb(a.opts);}
     else{title=`Bewegung von ${REG[a.from].n} – wohin?`;body='Wähle ein benachbartes Gebiet.'+rb(a.opts);}
@@ -874,12 +965,13 @@ function joinHTML(){
 function rulesHTML(open=false){
   return `<details ${open?'open':''}><summary>Kurzregeln</summary><ul>
   <li>Drei Kapitel. In jedem liegen 20 Karten aus, teils offen, teils verdeckt. Wer dran ist, nimmt <b>eine offene Karte, die nicht bedeckt ist</b>, oder <b>ein Ortsplättchen</b>. Der Schatten fängt an.</li>
-  <li>Eine Karte kannst du <b>ausspielen</b> (Kosten zahlen, Wirkung sofort) oder <b>verkaufen</b> (Kapitel 1: 1 Münze, Kapitel 2: 2, Kapitel 3: 3). Danach werden frei gewordene Karten aufgedeckt.</li>
+  <li>Eine Karte kannst du <b>ausspielen</b> (Kosten zahlen, Wirkung sofort) oder <b>verkaufen</b> (Kapitel 1: 1 Münze, Kapitel 2: 2, Kapitel 3: 3). Danach werden frei gewordene Karten aufgedeckt. Verkaufte Karten und die 3 übrigen Karten jedes Kapitels kommen verdeckt auf den <b>Ablagestapel</b>.</li>
   <li><b>Kosten:</b> Münzen zahlst du direkt. Für jede verlangte Fertigkeit, die dir fehlt, zahlst du 1 Münze. Jedes Fertigkeits-Symbol nutzt du pro Zug nur einmal. Hast du eine Karte mit dem passenden <b>Verkettungs-Symbol</b>, ist die neue Karte gratis.</li>
-  <li><b>Ortsplättchen:</b> kosten ihre Fertigkeiten plus 1 Münze pro Festung, die du schon hast. Du baust sofort eine Festung im genannten Gebiet und bekommst den Bonus. Im nächsten Kapitel wird auf 3 offene Plättchen aufgefüllt.</li>
+  <li><b>Ortsplättchen:</b> kosten ihre Fertigkeiten plus 1 Münze pro Festung, die du schon hast. Du baust sofort eine Festung im genannten Gebiet und bekommst den Bonus. Im nächsten Kapitel wird auf 3 offene Plättchen aufgefüllt. Mit den Zusatzplättchen kommen Wegkreuz und Rammbock nach dem ersten Aufdecken in den Stapel.</li>
   <li><b>Farben:</b> Grau = Fertigkeiten, Gelb = Münzen, Blau = Pfadschritte, Grün = Völker, Rot = Einheiten in eines von zwei Gebieten, Lila (nur Kapitel 3) = Bewegungen, Einheiten entfernen, Münzen stehlen.</li>
   <li><b>Kampf:</b> Kommen Einheiten in ein Gebiet mit gegnerischen Einheiten, wird paarweise je eine auf beiden Seiten entfernt, bis nur noch eine Seite dort steht. Festungen kämpfen nicht und blockieren nicht.</li>
-  <li><b>Bündnisse:</b> Sobald du 2 gleiche Völker hast, ziehst du die obersten 2 Marker dieses Volks und behältst einen. Einmal pro Partie, sobald du 3 verschiedene Völker hast, ziehst du je den obersten Marker dieser 3 Völker und behältst einen.</li>
+  <li><b>Bündnisse:</b> Sobald du 2 gleiche Völker hast, siehst du die obersten 2 Marker dieses Volks an und behältst einen. Einmal pro Partie, sobald du 3 verschiedene Völker hast, siehst du je den obersten Marker dieser 3 Völker an und behältst einen. Fischer, Hirten, Kräuterleute und Bergleute geben dauerhafte Vorteile, Flößer und Köhler einmalige.</li>
+  <li><b>Pfad:</b> Beide Seiten brauchen 14 Schritte. Nach 3, 6, 9 und 12 Schritten gibt es einen Bonus: 1 Münze, 1 Einheit in ein Gebiet deiner Wahl, einen weiteren Zug, 1 gegnerische Festung entfernen. Die Wanderer starten im Nordwald, der Schatten im Aschegrund.</li>
   <li><b>Sofortiger Sieg:</b> (1) Pfad: Die Laterne erreicht den Leuchtturm (Wanderer) oder der Schatten holt sie ein (Abstand 0). (2) 6 verschiedene Völker (der Falken-Marker zählt mit). (3) In allen 7 Gebieten vertreten (Einheit oder Festung).</li>
   <li>Sonst gewinnt nach Kapitel 3, wer in mehr Gebieten vertreten ist. Gleichstand: geteilter Sieg.</li>
   </ul>
@@ -900,7 +992,7 @@ function render(){
   const myTurn=S.online&&me>=0&&S.phase!=='over'&&S.current===me;
   document.title=myTurn?'● Du bist dran – Lichtpfad':'Lichtpfad';
   let hot=[];
-  if(S.phase==='ask'&&S.ask&&S.ask.t!=='alliance'&&(!S.online||me===S.current))hot=S.ask.opts;
+  if(S.phase==='ask'&&S.ask&&REGION_ASK.includes(S.ask.t)&&(!S.online||me===S.current))hot=S.ask.opts;
   let h=headerHTML()+toastHTML()+inviteHTML()+joinHTML();
   h+=pbarHTML(1-v,false)+trackHTML()+statusHTML();
   if(S.phase==='over'||hot.length)h+=mapHTML(hot);
@@ -929,6 +1021,7 @@ function setupHTML(){
       <div class="form">${[0,1].map(p=>`<div class="field p${p}"><label for="name-${p}">${SIDE[p].n}${p===1?' (fängt an)':''}</label>
         <input type="text" id="name-${p}" maxlength="16" placeholder="Vorname" value="${esc(ui.names[p])}">
         ${online?`<label class="choice"><input type="radio" name="seat" value="${p}" ${ui.seat===p?'checked':''}> das bin ich</label>`:''}</div>`).join('')}</div>
+      <label class="choice"><input type="checkbox" id="promo" ${ui.promo?'checked':''}> mit den Zusatzplättchen Wegkreuz und Rammbock</label>
       ${online?'<p class="muted">Danach bekommst du einen Link, den du der anderen Person schickst.</p>':''}
       <div class="row"><button class="btn" data-act="start">${online?'Spiel eröffnen':'Spiel beginnen'}</button>
       <button class="link" data-act="${online?'toLocal':'toOnline'}">${online?'Lieber an einem Gerät spielen':'Zurück zum Online-Spiel'}</button></div></section>
@@ -937,7 +1030,7 @@ function setupHTML(){
 
 /* ================= Eingaben ================= */
 document.addEventListener('input',e=>{if(e.target.id==='name-0')ui.names[0]=e.target.value;if(e.target.id==='name-1')ui.names[1]=e.target.value;});
-document.addEventListener('change',e=>{if(e.target.name==='seat')ui.seat=+e.target.value;});
+document.addEventListener('change',e=>{if(e.target.name==='seat')ui.seat=+e.target.value;if(e.target.id==='promo')ui.promo=e.target.checked;});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest&&e.target.closest('g[data-act]')){e.preventDefault();e.target.closest('g[data-act]').dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]');if(!t||t.disabled)return;
@@ -958,8 +1051,8 @@ document.addEventListener('click',e=>{
     if(mode==='setup'){
       net.gameId=rand(14);history.replaceState(null,'',location.pathname+location.search+'#'+net.gameId);
       mode='online';const seats=[null,null];seats[ui.seat]=net.myId;
-      S=null;newGame(names,seats);commit();connectOnline();
-    } else {S=null;newGame(names,null);commit();}
+      S=null;newGame(names,seats,ui.promo);commit();connectOnline();
+    } else {S=null;newGame(names,null,ui.promo);commit();}
     ui.confirmQuit=false;scrollTo(0,0);return;
   }
   if(act==='resume'){S=fetchStore(LOCAL_KEY);render();return;}
@@ -978,8 +1071,9 @@ document.addEventListener('click',e=>{
     case 'taketile':if(!ui.sel||ui.sel.k!=='tile'||!canTile(me,ui.sel.t))return;takeTile(ui.sel.t);ui.sel=null;commit();return;
     case 'region':if(S.phase!=='ask'||S.current!==me)return;choose(+t.dataset.r);commit();return;
     case 'marker':if(S.phase!=='ask'||S.current!==me)return;choose(+t.dataset.m);commit();return;
+    case 'pick':{if(S.phase!=='ask'||S.current!==me||!S.ask)return;const raw=t.dataset.v;choose(typeof S.ask.opts[0]==='number'?+raw:raw);commit();return;}
     case 'skip':if(S.phase!=='ask'||S.current!==me)return;skipAsk();commit();return;
-    case 'rematch':{if(!S.result)return;const names=[S.names[1],S.names[0]];const seats=S.online?[S.seats[1],S.seats[0]]:null;newGame(names,seats);commit();scrollTo(0,0);return;}
+    case 'rematch':{if(!S.result)return;const names=[S.names[1],S.names[0]];const seats=S.online?[S.seats[1],S.seats[0]]:null;newGame(names,seats,S.promo);commit();scrollTo(0,0);return;}
   }
   render();
 });
