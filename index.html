@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lichtpfad</title>
+<meta name="description" content="Duell für zwei um sieben Täler – online, jeder auf dem eigenen Gerät.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Alegreya+Sans:wght@400;500;700;800&display=swap">
+<style>
+/* Layout: Kopf, Gegner, Pfad, Landkarte, Ortsplättchen, Kartenauslage, eigene Seite */
+:root{
+  --table:#121a22; --felt:#1b2631; --felt-2:#22303e; --line:#334558;
+  --text:#ebe6da; --muted:#9fb0bf; --paper:#f1ebde; --ink:#2a251d;
+  --gold:#f0c060; --pa:#ff9b5a; --pb:#a993ff; --warn:#f07a6a;
+  --c-grau:#a3abb4; --c-gelb:#e2b43c; --c-blau:#4f8be0; --c-gruen:#4fa35a; --c-rot:#d24c3f; --c-lila:#9d60cc;
+  --display:'Cormorant Garamond', 'Palatino Linotype', Georgia, serif;
+  --body:'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--table);color:var(--text)}
+body{font-family:var(--body);font-size:16px;line-height:1.45}
+.wrap{max-width:860px;margin:0 auto;padding-block:14px 48px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.p0{--pc:var(--pa)} .p1{--pc:var(--pb)}
+button{font:inherit;cursor:pointer;color:inherit}
+button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.01em}
+p{margin:0}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+svg.i{width:1em;height:1em;vertical-align:-.15em;flex:none}
+
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.top h1{font-size:1.8rem;color:var(--gold);line-height:1}
+.top .round{color:var(--muted)}
+.top .spacer{flex:1}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;padding:4px}
+.quit{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.toast{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#3a2326;border:1px solid var(--warn);padding:10px 14px;border-radius:12px}
+.conn{font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.conn .led{width:9px;height:9px;border-radius:50%;background:#6c7a92}
+.conn.ok .led{background:#5fd38a}
+.conn.bad .led{background:var(--warn)}
+
+.btn{background:var(--pc,var(--gold));color:#18130d;font-weight:800;border:0;border-radius:999px;padding:11px 20px;font-size:1rem;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);box-shadow:none}
+.btn.small{padding:7px 14px;font-size:.9rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.panel{background:var(--felt);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.panel h2{font-size:1.6rem;color:var(--pc,var(--text));line-height:1.1}
+.wait{display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--pc);animation:pulse 1.4s ease-in-out infinite;flex:none}
+@keyframes pulse{50%{opacity:.25}}
+
+/* Spielerleisten */
+.pbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 12px;border-radius:12px;background:var(--felt);border:1px solid var(--line);border-left:5px solid var(--pc)}
+.pbar.turn{box-shadow:0 0 0 2px var(--pc)}
+.pname{font-family:var(--display);font-size:1.45rem;color:var(--pc);line-height:1;font-weight:700}
+.role{font-size:.8rem;color:var(--muted)}
+.you{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:#18130d;background:var(--pc);padding:1px 6px;border-radius:999px}
+.stat{color:var(--muted);font-size:.92rem;display:inline-flex;align-items:center;gap:4px}
+.stat b{color:var(--text)}
+.chips{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:.8rem;padding:2px 7px;border-radius:999px;background:var(--felt-2);border:1px solid var(--line)}
+.chip.sk{color:#d9dde2}
+.chip.vk{color:#9fe0a6}
+.chip.mk{color:var(--gold);cursor:help}
+.coin{display:inline-grid;place-items:center;width:1.35em;height:1.35em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6 0,transparent 50%),var(--gold);color:#3b2a08;font-weight:800;font-size:.8em;line-height:1;flex:none}
+
+/* Pfad */
+.track{display:flex;flex-direction:column;gap:6px;background:var(--felt);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.trow{display:grid;grid-template-columns:5.2em minmax(0,1fr) 4.6em;align-items:center;gap:8px}
+.tl{font-weight:800;color:var(--pc);font-size:.9rem}
+.tv{font-size:.85rem;color:var(--muted);text-align:right}
+.cells{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:3px}
+.cell{height:24px;border-radius:6px;background:var(--felt-2);border:1px solid var(--line);display:grid;place-items:center;font-size:.7rem;color:var(--muted);position:relative}
+.cell.done{background:color-mix(in srgb,var(--pc) 35%,var(--felt-2));border-color:var(--pc)}
+.cell.here{background:var(--pc);color:#18130d}
+.cell.goal{border-style:dashed;border-color:var(--gold)}
+.cell .bn{position:absolute;top:-6px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--gold);color:#3b2a08;font-size:.55rem;font-weight:800;display:grid;place-items:center}
+.cell.got .bn{opacity:.35}
+
+/* Landkarte */
+.map{background:radial-gradient(ellipse at 40% 40%,#25384a,#1a2734 75%);border:1px solid var(--line);border-radius:16px;padding:4px}
+.map svg{display:block;width:100%;max-width:540px;height:auto;margin:0 auto}
+.map .edge{stroke:#6f8396;stroke-width:2;stroke-dasharray:4 4}
+.map .reg rect{fill:#e9e0cc;stroke:#8a7b5f;stroke-width:1.5}
+.map .reg.hot{cursor:pointer}
+.map .reg.hot rect{stroke:var(--gold);stroke-width:4;fill:#fff3d6}
+.map .reg.hot:hover rect{fill:#ffe7b0}
+.map .rn{font:700 13px var(--body);fill:#3a3124;text-anchor:middle}
+.map .cnt{font:800 11px var(--body);fill:#18130d;text-anchor:middle;dominant-baseline:central}
+.map .u0{fill:var(--pa)} .map .u1{fill:var(--pb)}
+.map .home{font:600 10px var(--body);fill:#b9c6d2;text-anchor:middle}
+
+/* Ortsplättchen */
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--felt-2);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tile[aria-pressed="true"]{border-color:var(--gold);box-shadow:inset 0 0 0 2px var(--gold)}
+.tile .tn{font-weight:800;font-size:.9rem;line-height:1.15}
+.tile .tr{font-size:.75rem;color:var(--muted)}
+.tile .tc{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
+.tile .te{font-size:.78rem;line-height:1.2;color:#d6dde4}
+.tiles .none{grid-column:1/-1;color:var(--muted);font-size:.9rem}
+
+/* Kartenauslage */
+.pyr-wrap{background:radial-gradient(ellipse at 50% 30%,var(--felt-2),var(--felt) 75%);border:1px solid var(--line);border-radius:16px;padding:12px 8px}
+.pyr{position:relative;margin:0 auto;container-type:inline-size}
+.kc{position:absolute;border-radius:7%/5%;border:0;padding:0;background:var(--paper);color:var(--ink);box-shadow:0 2px 3px rgba(0,0,0,.45);display:flex;flex-direction:column;overflow:hidden;transition:transform .12s ease}
+.kc .band{height:16%;background:var(--cc);display:flex;align-items:center;justify-content:space-between;padding:0 4%;gap:2%}
+.kc .cost{display:flex;align-items:center;gap:1px;min-width:0}
+.kc .cost svg,.kc .cost .coin{width:15cqw;height:15cqw;font-size:10cqw}
+.kc .shape{color:#fff;font-size:11cqw;line-height:1;opacity:.85}
+.kc .body{flex:1;display:flex;align-items:center;justify-content:center;gap:2%;flex-wrap:wrap;padding:2% 4%;color:var(--cc2,var(--cc))}
+.kc .body svg{width:30cqw;height:30cqw}
+.kc .body .coin{width:34cqw;height:34cqw;font-size:22cqw}
+.kc .body .n{font:800 24cqw/1 var(--body);color:var(--ink)}
+.kc .foot{display:flex;justify-content:space-between;align-items:center;padding:0 4% 4%;min-height:17%}
+.kc .foot svg{width:15cqw;height:15cqw}
+.kc .cin{color:#7d6a3a}
+.kc .cout{color:#fff;background:#5a4b2e;border-radius:4px;padding:1px}
+.kc.sel{transform:translateY(-6%);box-shadow:0 0 0 3px var(--gold),0 6px 10px rgba(0,0,0,.5);z-index:5}
+.kc.dim{filter:saturate(.75) brightness(.82)}
+.kc.back{background:repeating-linear-gradient(45deg,#2f4256 0 5px,#273748 5px 10px);border:2px solid #4b6680;color:#8fa9c2}
+.kc.back .bk{font:700 30cqw/1 var(--display);margin:0 auto;padding-top:8%}
+.kci{container-type:inline-size;width:100%;height:100%;display:flex;flex-direction:column}
+.c-grau{--cc:var(--c-grau);--cc2:#5b636c} .c-gelb{--cc:var(--c-gelb);--cc2:#8a6510} .c-blau{--cc:var(--c-blau)} .c-gruen{--cc:var(--c-gruen)} .c-rot{--cc:var(--c-rot)} .c-lila{--cc:var(--c-lila)}
+
+.detail{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;align-items:start}
+.bigcard{position:relative;width:110px;aspect-ratio:1/1.4}
+.bigcard .kc{position:absolute;inset:0;width:100%;height:100%}
+.dl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.dl h3{font-size:1.4rem;line-height:1.1}
+.dl .ty{font-size:.8rem;color:var(--muted)}
+.hint{font-weight:700}
+.last{font-size:.92rem;color:var(--muted);padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+.last b{color:var(--text)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{background:var(--felt-2);border:2px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;display:flex;gap:10px;align-items:center}
+.opt:hover{border-color:var(--gold)}
+.result{font-family:var(--display);font-size:2.4rem;color:var(--pc,var(--gold));line-height:1.05}
+.result small{display:block;font-family:var(--body);font-size:1rem;color:var(--muted);margin-top:6px}
+
+/* Start */
+.hero{display:flex;flex-direction:column;gap:10px;padding-top:12px}
+.hero h1{font-size:clamp(3rem,12vw,5rem);color:var(--gold);line-height:.95}
+.hero p{max-width:62ch;font-size:1.08rem}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-weight:700}
+.field input[type=text]{background:var(--table);border:1px solid var(--line);border-left:5px solid var(--pc);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;width:100%}
+.choice{display:flex;gap:8px;align-items:center;font-size:.95rem;color:var(--muted);font-weight:400!important}
+.choice input{accent-color:var(--pc);width:18px;height:18px;flex:none}
+.invite{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.invite input{flex:1 1 240px;min-width:0;background:var(--table);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:.9rem}
+details{background:var(--felt);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+summary{cursor:pointer;font-weight:800}
+details ul{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:70ch}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:.9rem;color:var(--muted)}
+.legend span{display:inline-flex;gap:5px;align-items:center}
+.sw{width:12px;height:12px;border-radius:3px;background:var(--cc);display:inline-block}
+
+@media (max-width:560px){
+  .form{grid-template-columns:minmax(0,1fr)}
+  .tiles{grid-template-columns:minmax(0,1fr)}
+  .trow{grid-template-columns:4.2em minmax(0,1fr) 3.8em}
+  .cell{height:20px}
+  .detail{grid-template-columns:84px minmax(0,1fr)}
+  .bigcard{width:84px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main id="app" class="wrap"><section class="hero"><p class="eyebrow">Für zwei</p><h1>Lichtpfad</h1><p>Wird geladen …</p></section></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script>
+/* ================= Daten ================= */
+const GOAL=10, D0=10, UNITS=15, FORTS=7;
+const SIDE=[{n:'Wanderer',art:'die Wanderer'},{n:'Schatten',art:'der Schatten'}];
+const REG=[
+  {k:'kueste',n:'Küste',x:62,y:160},
+  {k:'nordwald',n:'Nordwald',x:180,y:48},
+  {k:'hochmoor',n:'Hochmoor',x:345,y:48},
+  {k:'seenland',n:'Seenland',x:195,y:160},
+  {k:'steppe',n:'Steppe',x:330,y:160},
+  {k:'suedmark',n:'Südmark',x:240,y:262},
+  {k:'aschegrund',n:'Aschegrund',x:412,y:258}
+];
+const RI=Object.fromEntries(REG.map((r,i)=>[r.k,i]));
+const EDGES=[[0,1],[0,3],[1,3],[1,2],[2,4],[3,4],[3,5],[4,5],[4,6],[2,6],[5,6]];
+const ADJ=REG.map((_,i)=>EDGES.filter(e=>e.includes(i)).map(e=>e[0]===i?e[1]:e[0]));
+const HOME=[0,6];
+
+const P='<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+const ICO={
+  kraft:'<path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/>',
+  klug:'<path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5zM12 6v13"/>',
+  mut:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+  list:'<path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/>',
+  fuehr:'<path d="M4 17l-1-9 5 4 4-6 4 6 5-4-1 9z"/><path d="M4 20h16"/>',
+  fischer:'<path d="M3 12c3-4 8-5 12-3l5-3v12l-5-3c-4 2-9 1-12-3z"/><circle cx="8" cy="11" r=".8"/>',
+  hirten:'<path d="M10 21V8a4 4 0 1 1 8 0v1"/>',
+  koehler:'<path d="M12 21c-4 0-6-2.5-6-6 0-3 2-5 3-8 1 2 2 3 3 3 0-2 1-5 3-7 1 3 3 5 3 9 0 5-2 9-6 9z"/>',
+  berg:'<path d="M4 8c4-3 12-3 16 0M12 6v15"/>',
+  floesser:'<path d="M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 19c2-2 4-2 6 0s4 2 6 0 4-2 6 0M7 12l10-8"/>',
+  kraeuter:'<path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14zM5 19l8-8"/>',
+  falke:'<path d="M2 9c4 0 7 2 10 6 3-4 6-6 10-6-3 1-6 4-7 9H9C8 13 5 10 2 9z"/>',
+  stern:'<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5l-5.3 2.9 1.2-6-4.5-4.1 6-.7z"/>',
+  mond:'<path d="M15 4a8 8 0 1 0 5 13A7 7 0 0 1 15 4z"/>',
+  sonne:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+  turm:'<path d="M7 21V9h10v12M6 9V4h2.5v2h2.5V4h2v2h2.5V4H18v5"/>',
+  krug:'<path d="M9 3h6M10 3v3c-3 1-4 4-4 7 0 4 3 7 6 7s6-3 6-7c0-3-1-6-4-7V3"/>',
+  schluessel:'<circle cx="7" cy="12" r="3.5"/><path d="M10.5 12H21M17 12v3M20 12v2"/>',
+  waage:'<path d="M12 4v16M8 20h8M4 7h16M6 7l-3 6h6zM18 7l-3 6h6z"/>',
+  kompass:'<circle cx="12" cy="12" r="8"/><path d="M15 9l-2 4-4 2 2-4z"/>',
+  schwert:'<path d="M12 2v13M8 15h8M12 15v6"/>',
+  pfad:'<path d="M9 5h6M10 5V3h4v2M8 7h8l-1 11H9zM12 10v5M9 21h6"/>',
+  unit:'<circle cx="12" cy="6" r="3"/><path d="M7 21l2-10h6l2 10z"/>',
+  fort:'<path d="M6 21V9h12v12M5 9V4h2.5v2h3V4h3v2h3V4H19v5M10 21v-4h4v4"/>',
+  move:'<path d="M4 12h14M13 6l6 6-6 6"/>',
+  kill:'<circle cx="12" cy="6" r="3"/><path d="M7 21l2-10h6l2 10zM3 3l18 18"/>',
+  steal:'<circle cx="12" cy="12" r="8"/><path d="M8 12h8"/>',
+  extra:'<path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/>'
+};
+const ic=(k,cls='')=>P.replace('class="i"',`class="i ${cls}"`)+ICO[k]+'</svg>';
+const coin=n=>`<span class="coin">${n}</span>`;
+
+const SK={kraft:'Kraft',klug:'Klugheit',mut:'Mut',list:'List',fuehr:'Führung'};
+const SKK=Object.keys(SK);
+const VOLK={fischer:'Fischer',hirten:'Hirten',koehler:'Köhler',berg:'Bergleute',floesser:'Flößer',kraeuter:'Kräuterleute'};
+const VK=Object.keys(VOLK);
+const CHAIN={stern:'Stern',mond:'Mond',sonne:'Sonne',turm:'Turm',krug:'Krug',schluessel:'Schlüssel',waage:'Waage',kompass:'Kompass',schwert:'Schwert'};
+const COL={grau:{n:'Grau – Fertigkeiten',s:'◆'},gelb:{n:'Gelb – Münzen',s:'●'},blau:{n:'Blau – Pfad',s:'▮'},gruen:{n:'Grün – Völker',s:'▲'},rot:{n:'Rot – Einheiten',s:'✖'},lila:{n:'Lila – Manöver',s:'★'}};
+
+const C=[];
+function card(ch,c,n,cost,eff,cin,cout){C.push({id:C.length,ch,c,n,cost,eff,cin:cin||null,cout:cout||null});}
+const co=(coins,...sk)=>({coins,sk});
+// Kapitel 1
+card(1,'grau','Schmiedeknecht',co(0),{skills:[['kraft']]});
+card(1,'grau','Schreiberin',co(0),{skills:[['klug']]});
+card(1,'grau','Grenzläuferin',co(0),{skills:[['mut']]});
+card(1,'grau','Gaukler',co(1),{skills:[['list']]});
+card(1,'grau','Dorfälteste',co(1),{skills:[['fuehr']]});
+card(1,'gelb','Marktstand',co(0),{coins:2},null,'krug');
+card(1,'gelb','Zollhaus',co(0,'list'),{coins:3},null,'schluessel');
+card(1,'gelb','Kleiner Hort',co(0),{coins:2});
+card(1,'blau','Wegweiser',co(0),{pfad:1},null,'stern');
+card(1,'blau','Laternenmacher',co(0,'klug'),{pfad:1});
+card(1,'blau','Nachtwache',co(0,'mut'),{pfad:1},null,'mond');
+card(1,'gruen','Fischerdorf',co(0),{volk:'fischer'});
+card(1,'gruen','Schafweide',co(0,'fuehr'),{volk:'hirten'});
+card(1,'gruen','Kohlenmeiler',co(0,'kraft'),{volk:'koehler'});
+card(1,'gruen','Stollen',co(0),{volk:'berg'});
+card(1,'gruen','Floßlände',co(0,'mut'),{volk:'floesser'});
+card(1,'gruen','Kräutergarten',co(0,'klug'),{volk:'kraeuter'});
+card(1,'rot','Späher',co(0),{units:1,regs:['seenland','steppe']});
+card(1,'rot','Wachtrupp',co(0),{units:1,regs:['nordwald','hochmoor']});
+card(1,'rot','Bogenschützen',co(0,'kraft'),{units:2,regs:['kueste','suedmark']},null,'sonne');
+card(1,'rot','Reiterzug',co(0,'mut'),{units:2,regs:['steppe','aschegrund']});
+card(1,'rot','Landwehr',co(0),{units:1,regs:['suedmark','hochmoor']});
+card(1,'rot','Vorposten',co(0,'fuehr'),{units:2,regs:['nordwald','seenland']},null,'turm');
+// Kapitel 2
+card(2,'grau','Zeughaus',co(2),{skills:[['kraft'],['mut']]});
+card(2,'grau','Bibliothek',co(2),{skills:[['klug'],['list']]});
+card(2,'grau','Ratshalle',co(0,'mut'),{skills:[['klug','fuehr']]},'turm');
+card(2,'grau','Fechtschule',co(0,'list'),{skills:[['kraft','mut']]});
+card(2,'gelb','Handelshaus',co(0,'fuehr'),{coins:4},'krug','waage');
+card(2,'gelb','Schatzkammer',co(0,'klug'),{coins:3},'schluessel');
+card(2,'gelb','Gasthaus',co(0,'mut'),{coins:3});
+card(2,'blau','Sternkarte',co(0,'klug','list'),{pfad:2},'stern','kompass');
+card(2,'blau','Mondlauf',co(0,'mut','fuehr'),{pfad:2},'mond');
+card(2,'blau','Fährmann',co(0),{pfad:1});
+card(2,'blau','Bergpass',co(0,'kraft','kraft'),{pfad:2});
+card(2,'gruen','Fischmarkt',co(0,'list'),{volk:'fischer'});
+card(2,'gruen','Hirtenfest',co(0,'mut'),{volk:'hirten'});
+card(2,'gruen','Köhlerzunft',co(0,'fuehr'),{volk:'koehler'});
+card(2,'gruen','Bergwerk',co(1,'kraft'),{volk:'berg'});
+card(2,'gruen','Flößerzunft',co(0,'klug'),{volk:'floesser'});
+card(2,'gruen','Kräuterhaus',co(0,'list','mut'),{volk:'kraeuter'});
+card(2,'rot','Ritterschaft',co(0,'kraft','mut'),{units:3,regs:['nordwald','steppe']},'sonne','schwert');
+card(2,'rot','Speerträger',co(0,'fuehr'),{units:2,regs:['seenland','hochmoor']});
+card(2,'rot','Turmbesatzung',co(0,'list'),{units:2,regs:['suedmark','steppe']});
+card(2,'rot','Söldner',co(2),{units:2,regs:['kueste','aschegrund']});
+card(2,'rot','Heerhaufen',co(0,'kraft','fuehr','mut'),{units:3,regs:['hochmoor','suedmark']});
+card(2,'rot','Kundschafter',co(0),{units:1,regs:['kueste','nordwald']});
+// Kapitel 3
+card(3,'grau','Akademie',co(3),{skills:[['klug'],['fuehr'],['list']]});
+card(3,'grau','Kampfschule',co(0,'fuehr'),{skills:[['kraft'],['mut']]});
+card(3,'gelb','Großer Markt',co(0,'klug','list'),{coins:5},'waage');
+card(3,'gelb','Fürstenhort',co(0,'fuehr'),{coins:4});
+card(3,'blau','Leuchtfeuer',co(0,'klug','mut','fuehr'),{pfad:3},'kompass');
+card(3,'blau','Geheimer Pfad',co(0,'list','list'),{pfad:2});
+card(3,'blau','Gewaltmarsch',co(0,'kraft','mut'),{pfad:2});
+card(3,'blau','Sternwarte',co(0,'klug','klug','list'),{pfad:3});
+card(3,'gruen','Hafenstadt',co(0,'klug','mut'),{volk:'fischer'});
+card(3,'gruen','Hochalm',co(0,'kraft','fuehr'),{volk:'hirten'});
+card(3,'gruen','Tiefe Minen',co(0,'list','kraft'),{volk:'berg'});
+card(3,'gruen','Waldhüter',co(0,'mut','fuehr'),{volk:'kraeuter'});
+card(3,'rot','Heerbann',co(0,'kraft','kraft','fuehr'),{units:3,regs:['aschegrund','hochmoor']},'schwert');
+card(3,'rot','Reiterei',co(0,'mut','mut','fuehr'),{units:3,regs:['kueste','steppe']});
+card(3,'rot','Belagerer',co(0,'list','kraft'),{units:2,regs:['nordwald','suedmark']});
+card(3,'rot','Leibwache',co(1,'fuehr'),{units:2,regs:['seenland','aschegrund']});
+card(3,'rot','Flussflotte',co(0,'klug','kraft'),{units:2,regs:['kueste','seenland']});
+card(3,'rot','Bergvolk',co(0,'kraft','mut','list'),{units:3,regs:['hochmoor','nordwald']});
+card(3,'lila','Überfall',co(0,'list','mut'),{steal:1,moves:2});
+card(3,'lila','Feldzug',co(0,'fuehr','kraft'),{moves:3});
+card(3,'lila','Hinterhalt',co(0,'list','kraft'),{kill:1,moves:1});
+card(3,'lila','Sabotage',co(0,'list','klug'),{steal:2,kill:1});
+card(3,'lila','Vorstoß',co(0,'fuehr','mut','kraft'),{kill:1,moves:2});
+
+const TILES=[
+  {r:0,n:'Küstenwacht',sk:['mut','klug'],eff:[{t:'pfad',n:1}],d:'1 Pfadschritt'},
+  {r:1,n:'Waldfeste',sk:['kraft','mut'],eff:[{t:'units',n:2,regs:[1]}],d:'2 Einheiten in den Nordwald'},
+  {r:2,n:'Moorturm',sk:['list','klug'],eff:[{t:'steal',n:2}],d:'Gegenüber verliert 2 Münzen'},
+  {r:3,n:'Seeburg',sk:['klug','fuehr'],eff:[{t:'coins',n:3}],d:'Nimm 3 Münzen'},
+  {r:4,n:'Steppenlager',sk:['fuehr','kraft'],eff:[{t:'extra'}],d:'Führe einen weiteren Zug aus'},
+  {r:5,n:'Grenzburg',sk:['kraft','list'],eff:[{t:'kill'}],d:'Entferne 1 gegnerische Einheit'},
+  {r:6,n:'Aschewarte',sk:['list','fuehr'],eff:[{t:'pfad',n:1},{t:'coins',n:1}],d:'1 Pfadschritt und 1 Münze'}
+];
+const MK=[
+  {v:'fischer',d:'Nimm 3 Münzen.',eff:[{t:'coins',n:3}]},
+  {v:'fischer',d:'Dauerhaft: Fertigkeit Klugheit.',perm:{skill:['klug']}},
+  {v:'fischer',d:'1 Pfadschritt.',eff:[{t:'pfad',n:1}]},
+  {v:'hirten',d:'Stelle 2 Einheiten in ein Gebiet, in dem du vertreten bist.',eff:[{t:'unitsPresent',n:2}]},
+  {v:'hirten',d:'Dauerhaft: Rote Karten bringen 1 Einheit mehr.',perm:{red:1}},
+  {v:'hirten',d:'Dein Gegenüber verliert 2 Münzen.',eff:[{t:'steal',n:2}]},
+  {v:'koehler',d:'Entferne 2 gegnerische Einheiten.',eff:[{t:'kill'},{t:'kill'}]},
+  {v:'koehler',d:'Dauerhaft: Fertigkeit Kraft oder Mut (pro Zug eine davon).',perm:{skill:['kraft','mut']}},
+  {v:'koehler',d:'Führe sofort einen weiteren Zug aus.',eff:[{t:'extra'}]},
+  {v:'berg',d:'Nimm 4 Münzen.',eff:[{t:'coins',n:4}]},
+  {v:'berg',d:'Dauerhaft: Verkaufen bringt 1 Münze mehr.',perm:{sell:1}},
+  {v:'berg',d:'Falken-Symbol (zählt als zusätzliches Volk für den Völker-Sieg) und 1 Münze.',perm:{falke:1},eff:[{t:'coins',n:1}]},
+  {v:'floesser',d:'2 Bewegungen.',eff:[{t:'move'},{t:'move'}]},
+  {v:'floesser',d:'2 Pfadschritte.',eff:[{t:'pfad',n:2}]},
+  {v:'floesser',d:'Dauerhaft: Blaue Karten bringen 1 Pfadschritt mehr.',perm:{blue:1}},
+  {v:'kraeuter',d:'Dauerhaft: Fertigkeit List oder Führung (pro Zug eine davon).',perm:{skill:['list','fuehr']}},
+  {v:'kraeuter',d:'Dauerhaft: Ortsplättchen kosten keine Münzen für deine Festungen.',perm:{tile:1}},
+  {v:'kraeuter',d:'Entferne 1 gegnerische Einheit und nimm 1 Münze.',eff:[{t:'kill'},{t:'coins',n:1}]}
+];
+MK.forEach((m,i)=>m.id=i);
+// Bonusfelder auf dem Pfad (Fortschritt → Wirkung)
+const BON=[
+  {3:{eff:[{t:'coins',n:2}],d:'2 Münzen'},6:{eff:[{t:'unitsPresent',n:1}],d:'1 Einheit in ein Gebiet, in dem du vertreten bist'},8:{eff:[{t:'kill'}],d:'Entferne 1 gegnerische Einheit'}},
+  {3:{eff:[{t:'coins',n:2}],d:'2 Münzen'},6:{eff:[{t:'kill'}],d:'Entferne 1 gegnerische Einheit'},8:{eff:[{t:'steal',n:2}],d:'Gegenüber verliert 2 Münzen'}}
+];
+const LAYOUT=[
+  {rows:[[-1,1],[-2,0,2],[-3,-1,1,3],[-4,-2,0,2,4],[-5,-3,-1,1,3,5]],up:[1,0,1,0,1]},
+  {rows:[[-5,-3,-1,1,3,5],[-4,-2,0,2,4],[-3,-1,1,3],[-2,0,2],[-1,1]],up:[1,0,1,0,1]},
+  {rows:[[-1,1],[-2,0,2],[-3,-1,1,3],[-2,2],[-3,-1,1,3],[-2,0,2],[-1,1]],up:[1,0,1,0,1,0,1]}
+];
+
+/* ================= Zustand ================= */
+const BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt'];
+const TOPIC_PREFIX='lichtpfad-spiel/v1/';
+const LOCAL_KEY='lichtpfad-lokal-v1';
+const params=new URLSearchParams(location.search);
+const DEVICE_KEY='lichtpfad-geraet'+(params.get('geraet')?'-'+params.get('geraet').replace(/[^a-z0-9]/gi,''):'');
+
+let S=null;
+let mode='setup';
+const net={clients:[],status:[],gameId:null,myId:null,ended:false,endedRev:-1,notFound:false,libMissing:false};
+const ui={confirmQuit:false,names:['',''],seat:0,sel:null,turnKey:'',toast:'',copied:false};
+
+const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const nm=p=>esc(S.names[p]);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const rand=n=>{const a='abcdefghijkmnpqrstuvwxyz23456789';let s='';const r=new Uint32Array(n);crypto.getRandomValues(r);for(let i=0;i<n;i++)s+=a[r[i]%a.length];return s;};
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function store(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function fetchStore(k){try{const t=localStorage.getItem(k);return t?JSON.parse(t):null;}catch(e){return null;}}
+function deviceId(){let d=fetchStore(DEVICE_KEY);if(!d){d='g_'+rand(16);store(DEVICE_KEY,d);}return d;}
+const cacheKey=()=>'lichtpfad-spiel-'+net.gameId;
+function saveLocal(){if(mode==='local')store(LOCAL_KEY,S);}
+const mySeat=()=>S&&S.online&&S.seats?S.seats.indexOf(net.myId):-1;
+const actorSeat=()=>S.online?mySeat():S.current;
+const plural=(n,a,b)=>n===1?a:b;
+
+/* ================= Hilfsrechnungen ================= */
+function perm(side){
+  const o={skill:[],red:0,sell:0,blue:0,tile:0,falke:0};
+  S.markers[side].forEach(id=>{const p=MK[id].perm;if(!p)return;if(p.skill)o.skill.push(p.skill);['red','sell','blue','tile','falke'].forEach(k=>{if(p[k])o[k]+=p[k];});});
+  return o;
+}
+function skillItems(side){
+  const items=[];
+  S.played[side].forEach(id=>{const e=C[id].eff;if(e.skills)e.skills.forEach(it=>items.push(it));});
+  perm(side).skill.forEach(it=>items.push(it));
+  return items;
+}
+function maxMatch(req,items){
+  let best=0;const used=items.map(()=>false);
+  (function rec(i,m){
+    if(m+(req.length-i)<=best)return;
+    if(i===req.length){best=Math.max(best,m);return;}
+    for(let j=0;j<items.length;j++)if(!used[j]&&items[j].includes(req[i])){used[j]=true;rec(i+1,m+1);used[j]=false;}
+    rec(i+1,m);
+  })(0,0);
+  return best;
+}
+const chains=side=>new Set(S.played[side].map(id=>C[id].cout).filter(Boolean));
+function cardCost(side,card){
+  if(card.cin&&chains(side).has(card.cin))return {total:0,chain:true,missing:0};
+  const missing=card.cost.sk.length-maxMatch(card.cost.sk,skillItems(side));
+  return {total:(card.cost.coins||0)+missing,chain:false,missing};
+}
+const fortsOn=side=>S.forts[side].reduce((a,b)=>a+b,0);
+const unitsOn=side=>S.units[side].reduce((a,b)=>a+b,0);
+function tileCost(side,ti){
+  const t=TILES[ti];
+  const missing=t.sk.length-maxMatch(t.sk,skillItems(side));
+  const fc=perm(side).tile?0:fortsOn(side);
+  return {total:missing+fc,missing,fc};
+}
+function volkCounts(side){const c={};S.played[side].forEach(id=>{const v=C[id].eff.volk;if(v)c[v]=(c[v]||0)+1;});return c;}
+const volkDistinct=side=>Object.keys(volkCounts(side)).length+(perm(side).falke?1:0);
+const present=(side,r)=>S.units[side][r]>0||S.forts[side][r]>0;
+const presence=side=>REG.reduce((s,_,r)=>s+(present(side,r)?1:0),0);
+const prog=side=>side===0?S.f:D0-S.d;
+function avail(i){
+  const s=S.slots[i];if(s.gone)return false;
+  return !S.slots.some(o=>!o.gone&&o.row===s.row+1&&Math.abs(o.x-s.x)===1);
+}
+function log(msg){S.log.unshift(msg);S.log=S.log.slice(0,8);}
+
+/* ================= Spiellogik ================= */
+function newGame(names,seats){
+  const rev=(S&&S.rev)||0;
+  S={online:!!seats,seats:seats||null,names,chapter:1,current:1,coins:[3,2],f:0,d:D0,
+     units:[Array(7).fill(0),Array(7).fill(0)],forts:[Array(7).fill(0),Array(7).fill(0)],
+     played:[[],[]],markers:[[],[]],pair:[{},{}],triple:[false,false],stacks:{},
+     tileDeck:shuffle([0,1,2,3,4,5,6]),tilesOpen:[],tiles:[[],[]],slots:[],out:[],
+     queue:[],ask:null,extra:false,result:null,log:[],phase:'turn',rev};
+  S.units[0][HOME[0]]=2; S.units[1][HOME[1]]=2;
+  VK.forEach(v=>{S.stacks[v]=shuffle(MK.filter(m=>m.v===v).map(m=>m.id));});
+  setupChapter();
+  log(`Kapitel 1 beginnt. <b>${nm(1)}</b> (Schatten) fängt an.`);
+}
+function setupChapter(){
+  const deck=shuffle(C.filter(c=>c.ch===S.chapter).map(c=>c.id));
+  const L=LAYOUT[S.chapter-1];S.slots=[];let k=0;
+  L.rows.forEach((row,ri)=>row.forEach(x=>S.slots.push({c:deck[k++],row:ri,x,up:!!L.up[ri],gone:false})));
+  S.out=deck.slice(k);
+  while(S.tilesOpen.length<3&&S.tileDeck.length)S.tilesOpen.push(S.tileDeck.pop());
+}
+function end(winner,reason){S.result={winner,reason};S.phase='over';S.queue=[];S.ask=null;}
+function checkWin(){
+  if(S.result)return true;
+  if(S.f>=GOAL){end(0,'pfad');return true;}
+  if(S.d<=0){end(1,'pfad');return true;}
+  const order=[S.current,1-S.current];
+  for(const s of order){if(volkDistinct(s)>=6){end(s,'volk');return true;}}
+  for(const s of order){if(presence(s)===7){end(s,'land');return true;}}
+  return false;
+}
+function placeUnits(side,r,n){
+  const o=1-side;n=Math.min(n,UNITS-unitsOn(side));
+  if(n<=0)return;
+  S.units[side][r]+=n;
+  let msg=`<b>${nm(side)}</b> stellt ${n} ${plural(n,'Einheit','Einheiten')} nach ${REG[r].n}`;
+  const k=Math.min(S.units[side][r],S.units[o][r]);
+  if(k>0){S.units[side][r]-=k;S.units[o][r]-=k;msg+=` – Kampf: auf beiden Seiten ${k} ${plural(k,'Einheit','Einheiten')} entfernt`;}
+  log(msg+'.');
+}
+function moveUnit(side,a,b){
+  const o=1-side;S.units[side][a]--;S.units[side][b]++;
+  let msg=`<b>${nm(side)}</b> zieht eine Einheit von ${REG[a].n} nach ${REG[b].n}`;
+  const k=Math.min(S.units[side][b],S.units[o][b]);
+  if(k>0){S.units[side][b]-=k;S.units[o][b]-=k;msg+=` – Kampf: je ${k} entfernt`;}
+  log(msg+'.');
+}
+function pfadStep(side,n){
+  const old=prog(side);
+  if(side===0)S.f=Math.min(GOAL,S.f+n);else S.d=Math.max(0,S.d-n);
+  const nw=prog(side);const add=[];
+  for(let p=old+1;p<=nw;p++)if(BON[side][p])add.push(...clone(BON[side][p].eff));
+  log(`<b>${nm(side)}</b>: ${n} ${plural(n,'Pfadschritt','Pfadschritte')} (${side===0?`Laterne auf ${S.f} von ${GOAL}`:`Abstand des Schattens noch ${S.d}`}).`);
+  return add;
+}
+function cardEffects(side,card){
+  const e=card.eff,p=perm(side),q=[];
+  if(e.coins)q.push({t:'coins',n:e.coins});
+  if(e.pfad)q.push({t:'pfad',n:e.pfad+p.blue});
+  if(e.units)q.push({t:'units',n:e.units+p.red,regs:e.regs.map(k=>RI[k])});
+  if(e.steal)q.push({t:'steal',n:e.steal});
+  for(let i=0;i<(e.kill||0);i++)q.push({t:'kill'});
+  for(let i=0;i<(e.moves||0);i++)q.push({t:'move'});
+  return q;
+}
+function allianceChecks(side){
+  const c=volkCounts(side),out=[];
+  VK.forEach(v=>{if((c[v]||0)>=2&&!S.pair[side][v]){S.pair[side][v]=true;out.push({t:'alliance',mode:'pair',v:[v]});}});
+  const d=Object.keys(c);
+  if(d.length>=3&&!S.triple[side]){S.triple[side]=true;out.push({t:'alliance',mode:'triple',v:d.slice(0,3)});}
+  return out;
+}
+function optionsFor(e){
+  const side=S.current,o=1-side;
+  switch(e.t){
+    case 'units':
+      if(UNITS-unitsOn(side)<=0)return [];
+      return e.regs.length===1?null:e.regs.slice();
+    case 'unitsPresent':{
+      if(UNITS-unitsOn(side)<=0)return [];
+      const r=REG.map((_,i)=>i).filter(i=>present(side,i));
+      return r.length?r:REG.map((_,i)=>i);
+    }
+    case 'move':
+      if(e.from==null)return REG.map((_,i)=>i).filter(i=>S.units[side][i]>0);
+      return ADJ[e.from].slice();
+    case 'kill':return REG.map((_,i)=>i).filter(i=>S.units[o][i]>0);
+    case 'alliance':{
+      if(e.mode==='pair')return S.stacks[e.v[0]].slice(-2).reverse();
+      return e.v.map(v=>S.stacks[v][S.stacks[v].length-1]).filter(x=>x!=null);
+    }
+    default:return null;
+  }
+}
+function applyAuto(e){
+  const side=S.current,o=1-side;
+  switch(e.t){
+    case 'coins':S.coins[side]+=e.n;log(`<b>${nm(side)}</b> nimmt ${e.n} ${plural(e.n,'Münze','Münzen')}.`);break;
+    case 'steal':{const k=Math.min(e.n,S.coins[o]);S.coins[o]-=k;log(`<b>${nm(o)}</b> verliert ${k} ${plural(k,'Münze','Münzen')}.`);break;}
+    case 'extra':S.extra=true;break;
+    case 'fort':S.forts[side][e.r]=1;log(`<b>${nm(side)}</b> baut eine Festung in ${REG[e.r].n}.`);break;
+    case 'units':placeUnits(side,e.regs[0],e.n);break;
+    case 'pfad':{const add=pfadStep(side,e.n);S.queue.unshift(...add);break;}
+  }
+}
+function runQueue(){
+  let guard=0;
+  while(S.queue.length&&guard++<200){
+    if(S.result)return;
+    const e=S.queue[0];
+    const opts=optionsFor(e);
+    if(opts===null){S.queue.shift();applyAuto(e);if(checkWin())return;continue;}
+    if(!opts.length){S.queue.shift();continue;}
+    if(e.t==='alliance'&&opts.length===1){S.queue.shift();takeMarker(S.current,opts[0]);if(checkWin())return;continue;}
+    S.ask={t:e.t,opts,from:e.from==null?null:e.from,n:e.n||0,mode:e.mode||null};
+    S.phase='ask';return;
+  }
+  S.ask=null;finishTurn();
+}
+function takeMarker(side,id){
+  const m=MK[id],st=S.stacks[m.v];st.splice(st.indexOf(id),1);
+  S.markers[side].push(id);
+  log(`<b>${nm(side)}</b> schließt ein Bündnis mit den ${VOLK[m.v]}: ${m.d}`);
+  if(m.eff)S.queue.unshift(...clone(m.eff));
+}
+function choose(v){
+  const e=S.queue[0],side=S.current,o=1-side;
+  if(!e||!S.ask||!S.ask.opts.includes(v))return;
+  S.ask=null;S.phase='resolve';
+  switch(e.t){
+    case 'units':case 'unitsPresent':S.queue.shift();placeUnits(side,v,e.n);break;
+    case 'move':
+      if(e.from==null){e.from=v;}
+      else{S.queue.shift();moveUnit(side,e.from,v);}
+      break;
+    case 'kill':S.queue.shift();S.units[o][v]--;log(`<b>${nm(side)}</b> entfernt eine Einheit von ${nm(o)} in ${REG[v].n}.`);break;
+    case 'alliance':S.queue.shift();takeMarker(side,v);break;
+  }
+  if(!checkWin())runQueue();
+}
+function skipAsk(){
+  const e=S.queue[0];if(!e||e.t!=='move')return;
+  if(e.from!=null&&S.ask){e.from=null;S.ask=null;S.phase='resolve';runQueue();return;}
+  S.queue.shift();S.ask=null;S.phase='resolve';runQueue();
+}
+function playCard(i){
+  const side=S.current,sl=S.slots[i],card=C[sl.c],cost=cardCost(side,card);
+  S.coins[side]-=cost.total;sl.gone=true;S.played[side].push(card.id);
+  log(`<b>${nm(side)}</b> spielt <b>${esc(card.n)}</b> aus${cost.chain?' (kostenlos dank Verkettung)':cost.total?` (zahlt ${cost.total} ${plural(cost.total,'Münze','Münzen')})`:''}.`);
+  S.queue=cardEffects(side,card);
+  if(card.eff.volk)S.queue.push(...allianceChecks(side));
+  S.phase='resolve';if(!checkWin())runQueue();
+}
+function sellCard(i){
+  const side=S.current,sl=S.slots[i],n=S.chapter+perm(side).sell;
+  sl.gone=true;S.coins[side]+=n;
+  log(`<b>${nm(side)}</b> verkauft eine Karte für ${n} ${plural(n,'Münze','Münzen')}.`);
+  S.queue=[];S.phase='resolve';runQueue();
+}
+function takeTile(ti){
+  const side=S.current,t=TILES[ti],cost=tileCost(side,ti);
+  S.coins[side]-=cost.total;S.tilesOpen=S.tilesOpen.filter(x=>x!==ti);S.tiles[side].push(ti);
+  log(`<b>${nm(side)}</b> nimmt das Ortsplättchen <b>${t.n}</b>${cost.total?` (zahlt ${cost.total})`:''}.`);
+  S.queue=[{t:'fort',r:t.r},...clone(t.eff)];S.phase='resolve';if(!checkWin())runQueue();
+}
+function finishTurn(){
+  S.slots.forEach((s,i)=>{if(!s.up&&avail(i))s.up=true;});
+  if(S.result)return;
+  if(S.slots.every(s=>s.gone)){
+    if(S.chapter===3){finalScore();return;}
+    S.chapter++;setupChapter();log(`Kapitel ${S.chapter} beginnt.`);
+  }
+  if(S.extra){S.extra=false;log(`<b>${nm(S.current)}</b> ist gleich noch einmal dran.`);}
+  else S.current=1-S.current;
+  S.phase='turn';S.ask=null;S.queue=[];
+}
+function finalScore(){
+  const a=presence(0),b=presence(1);
+  if(a===b)end(null,'gleich');else end(a>b?0:1,'gebiete');
+}
+function canPlay(side,i){return S.phase==='turn'&&S.current===side&&avail(i)&&S.slots[i].up&&cardCost(side,C[S.slots[i].c]).total<=S.coins[side];}
+function canTile(side,ti){return S.phase==='turn'&&S.current===side&&S.tilesOpen.includes(ti)&&fortsOn(side)<FORTS&&tileCost(side,ti).total<=S.coins[side];}
+
+/* ================= Verbindung ================= */
+const topic=()=>TOPIC_PREFIX+net.gameId;
+function payload(){return JSON.stringify(S?S:{ended:true,rev:net.endedRev,by:net.myId});}
+function publishTo(c){try{c.publish(topic(),payload(),{qos:1,retain:true});}catch(e){}}
+function publishAll(){net.clients.forEach(c=>{if(c)publishTo(c);});}
+function cacheSave(){store(cacheKey(),S?S:{ended:true,rev:net.endedRev});}
+function connectOnline(){
+  if(typeof mqtt==='undefined'){net.libMissing=true;render();return;}
+  BROKERS.forEach((url,i)=>{
+    net.status[i]='connecting';let c;
+    try{c=mqtt.connect(url,{clientId:'lp_'+rand(12),clean:true,connectTimeout:8000,reconnectPeriod:4000,keepalive:30});}
+    catch(e){net.status[i]='bad';return;}
+    net.clients[i]=c;let heard=false;
+    c.on('connect',()=>{
+      net.status[i]='ok';heard=false;render();
+      c.subscribe(topic(),{qos:1},err=>{if(err)return;setTimeout(()=>{if(!heard&&(S?mySeat()>=0:net.ended))publishTo(c);},3000);});
+    });
+    c.on('message',(t,buf)=>{heard=true;onRemote(buf.toString());});
+    c.on('offline',()=>{net.status[i]='bad';render();});
+    c.on('reconnect',()=>{if(net.status[i]!=='ok')net.status[i]='connecting';});
+    c.on('error',()=>{});
+  });
+  setTimeout(()=>{if(!S&&!net.ended){net.notFound=true;render();}},10000);
+}
+function onRemote(txt){
+  if(!txt)return;let o;try{o=JSON.parse(txt);}catch(e){return;}
+  if(!o||typeof o.rev!=='number')return;
+  const cur=S?S.rev:net.endedRev;
+  const newer=o.rev>cur||(o.rev===cur&&S&&o.by&&S.by&&o.by>S.by&&txt!==JSON.stringify(S));
+  if(newer){
+    if(o.ended){S=null;net.ended=true;net.endedRev=o.rev;}
+    else{S=o;net.ended=false;net.notFound=false;}
+    cacheSave();render();
+  } else if(o.rev<cur&&(S?mySeat()>=0:net.ended)) publishAll();
+}
+function commit(){
+  if(mode!=='online'){saveLocal();render();return;}
+  S.rev=(S.rev||0)+1;S.by=net.myId;cacheSave();publishAll();render();
+}
+function endOnline(){net.endedRev=(S?S.rev:net.endedRev)+1;S=null;net.ended=true;cacheSave();publishAll();render();}
+function inviteUrl(){return location.origin+location.pathname+'#'+net.gameId;}
+function goHome(){history.replaceState(null,'',location.pathname+location.search);location.reload();}
+
+/* ================= Darstellung ================= */
+function costHTML(cost){
+  let h='';if(cost.coins)h+=coin(cost.coins);
+  cost.sk.forEach(s=>h+=ic(s));return h;
+}
+function effIcons(card){
+  const e=card.eff;
+  if(e.skills)return e.skills.map(it=>it.map(s=>ic(s)).join('<span class="n" style="font-size:16cqw">/</span>')).join('');
+  if(e.coins)return coin(e.coins);
+  if(e.pfad)return ic('pfad')+`<span class="n">${e.pfad}</span>`;
+  if(e.volk)return ic(e.volk);
+  if(e.units)return ic('unit')+`<span class="n">${e.units}</span>`;
+  let h='';if(e.steal)h+=ic('steal')+`<span class="n" style="font-size:16cqw">${e.steal}</span>`;
+  if(e.kill)h+=ic('kill');if(e.moves)h+=ic('move')+`<span class="n" style="font-size:16cqw">${e.moves}</span>`;
+  return h;
+}
+function cardInner(card){
+  return `<span class="kci"><span class="band"><span class="cost">${card.cin?`<span class="cin" title="Verkettung: ${CHAIN[card.cin]}">${ic(card.cin)}</span>`:''}${costHTML(card.cost)}</span><span class="shape">${COL[card.c].s}</span></span>
+    <span class="body">${effIcons(card)}</span>
+    <span class="foot"><span></span>${card.cout?`<span class="cout" title="Gibt Verkettung: ${CHAIN[card.cout]}">${ic(card.cout)}</span>`:''}</span></span>`;
+}
+function effText(card){
+  const e=card.eff;
+  if(e.skills){
+    if(e.skills.length===1&&e.skills[0].length>1)return `Fertigkeit ${e.skills[0].map(s=>SK[s]).join(' oder ')} (pro Zug eine davon).`;
+    return `${plural(e.skills.length,'Fertigkeit','Fertigkeiten')}: ${e.skills.map(it=>SK[it[0]]).join(', ')}.`;
+  }
+  if(e.coins)return `Nimm ${e.coins} Münzen.`;
+  if(e.pfad)return `${e.pfad} ${plural(e.pfad,'Pfadschritt','Pfadschritte')}.`;
+  if(e.volk)return `Volk: ${VOLK[e.volk]}.`;
+  if(e.units)return `Stelle ${e.units} ${plural(e.units,'Einheit','Einheiten')} nach ${e.regs.map(k=>REG[RI[k]].n).join(' oder ')}.`;
+  const p=[];if(e.steal)p.push(`Gegenüber verliert ${e.steal} ${plural(e.steal,'Münze','Münzen')}`);
+  if(e.kill)p.push('entferne 1 gegnerische Einheit');if(e.moves)p.push(`${e.moves} ${plural(e.moves,'Bewegung','Bewegungen')}`);
+  return p.join(', ').replace(/^./,c=>c.toUpperCase())+'.';
+}
+const skText=sk=>sk.length?sk.map(s=>SK[s]).join(', '):'keine Fertigkeiten';
+
+function connHTML(){
+  if(mode!=='online')return '';
+  if(net.libMissing)return `<span class="conn bad"><span class="led"></span>keine Verbindung</span>`;
+  const ok=net.status.some(s=>s==='ok'),trying=net.status.some(s=>s==='connecting');
+  return ok?`<span class="conn ok"><span class="led"></span>verbunden</span>`:`<span class="conn ${trying?'':'bad'}"><span class="led"></span>${trying?'verbinde …':'keine Verbindung – Züge werden nachgeschickt'}</span>`;
+}
+function headerHTML(){
+  const canQuit=!S.online||mySeat()>=0;
+  return `<div class="top"><h1>Lichtpfad</h1><span class="round">Kapitel ${S.chapter} von 3</span>${connHTML()}<span class="spacer"></span>
+  ${!canQuit?'':ui.confirmQuit?`<span class="quit">Spiel für ${S.online?'euch beide ':''}wirklich beenden? <button class="btn ghost small" data-act="quit">Ja, beenden</button><button class="btn small" data-act="noquit">Weiterspielen</button></span>`:`<button class="link" data-act="askquit">Spiel beenden</button>`}</div>`;
+}
+const toastHTML=()=>ui.toast?`<div class="toast" role="status"><span>${ui.toast}</span><button class="btn ghost small" data-act="toastx">OK</button></div>`:'';
+function pbarHTML(side,isMe){
+  const items=skillItems(side),cnt={},choice=[];
+  items.forEach(it=>{if(it.length===1)cnt[it[0]]=(cnt[it[0]]||0)+1;else choice.push(it);});
+  const sk=SKK.filter(s=>cnt[s]).map(s=>`<span class="chip sk" title="${SK[s]}">${ic(s)}${cnt[s]>1?cnt[s]:''}</span>`).join('')+
+    choice.map(it=>`<span class="chip sk" title="${it.map(s=>SK[s]).join(' oder ')}">${it.map(s=>ic(s)).join('/')}</span>`).join('');
+  const vc=volkCounts(side);
+  const vk=VK.filter(v=>vc[v]).map(v=>`<span class="chip vk" title="${VOLK[v]}">${ic(v)}${vc[v]>1?vc[v]:''}</span>`).join('')+(perm(side).falke?`<span class="chip vk" title="Falke">${ic('falke')}</span>`:'');
+  const mk=S.markers[side].map(id=>`<span class="chip mk" title="${esc(VOLK[MK[id].v]+': '+MK[id].d)}">${ic(MK[id].v)}</span>`).join('');
+  const ch=[...chains(side)].map(k=>`<span class="chip" title="Verkettung ${CHAIN[k]}">${ic(k)}</span>`).join('');
+  return `<div class="pbar p${side}${S.phase!=='over'&&S.current===side?' turn':''}">
+    <span class="pname">${nm(side)}</span><span class="role">${SIDE[side].n}</span>${isMe?'<span class="you">du</span>':''}
+    ${S.online&&S.seats&&!S.seats[side]?'<span class="stat">(noch nicht beigetreten)</span>':''}
+    <span class="stat">${coin(S.coins[side])}</span>
+    <span class="stat" title="Gebiete, in denen ${nm(side)} vertreten ist"><b>${presence(side)}</b>/7 Gebiete</span>
+    <span class="stat" title="Einheiten im Vorrat">${ic('unit')}${UNITS-unitsOn(side)} übrig</span>
+    ${sk?`<span class="chips" aria-label="Fertigkeiten">${sk}</span>`:''}
+    ${vk?`<span class="chips" aria-label="Völker">${vk}</span>`:''}
+    ${mk?`<span class="chips" aria-label="Bündnisse">${mk}</span>`:''}
+    ${ch?`<span class="chips" aria-label="Verkettungen">${ch}</span>`:''}
+  </div>`;
+}
+function trackHTML(){
+  const row=(side,label,val,txt)=>{
+    let cells='';
+    for(let p=0;p<=10;p++){
+      const b=BON[side][p];const v=prog(side);
+      cells+=`<span class="cell${p<v?' done':''}${p===v?' here':''}${p===10?' goal':''}${b&&v>=p?' got':''}" title="${b?'Bonus: '+b.d:''}">${p===v?ic(side?'mond':'pfad'):p===10?ic(side?'unit':'turm'):''}${b?'<span class="bn">+</span>':''}</span>`;
+    }
+    return `<div class="trow p${side}"><span class="tl">${label}</span><div class="cells">${cells}</div><span class="tv">${txt}</span></div>`;
+  };
+  return `<section class="track" aria-label="Pfad">
+    ${row(0,'Laterne',S.f,`${S.f} von ${GOAL}`)}
+    ${row(1,'Schatten',D0-S.d,`Abstand ${S.d}`)}
+    <p class="muted" style="font-size:.8rem">Die Wanderer gewinnen, wenn die Laterne den Leuchtturm erreicht. Der Schatten gewinnt, wenn sein Abstand 0 ist. Felder mit + geben einen Bonus.</p></section>`;
+}
+function mapHTML(hot){
+  const hs=new Set(hot||[]);
+  let h='<div class="map"><svg viewBox="0 0 470 310" role="group" aria-label="Die sieben Gebiete">';
+  EDGES.forEach(([a,b])=>{h+=`<line class="edge" x1="${REG[a].x}" y1="${REG[a].y}" x2="${REG[b].x}" y2="${REG[b].y}"/>`;});
+  REG.forEach((r,i)=>{
+    const hotr=hs.has(i);
+    const u=(s,cx)=>{let g='';const n=S.units[s][i];
+      if(S.forts[s][i])g+=`<g transform="translate(${s?cx-26:cx+12},${r.y+2}) scale(.6)" class="u${s}"><path d="M3 21V9h18v12zM2 9V3h4v3h4V3h4v3h4V3h4v6z" stroke="#18130d" stroke-width="1.6"/></g>`;
+      if(n)g+=`<circle class="u${s}" cx="${cx}" cy="${r.y+9}" r="9" stroke="#18130d" stroke-width="1.2"/><text class="cnt" x="${cx}" y="${r.y+9}">${n}</text>`;
+      return g;};
+    h+=`<g class="reg${hotr?' hot':''}" ${hotr?`data-act="region" data-r="${i}" role="button" tabindex="0" aria-label="${r.n} wählen"`:''}>
+      <rect x="${r.x-50}" y="${r.y-27}" width="100" height="54" rx="12"/>
+      <text class="rn" x="${r.x}" y="${r.y-10}">${r.n}</text>
+      ${u(0,r.x-30)}${u(1,r.x+30)}
+      ${i===HOME[0]?`<text class="home" x="${r.x}" y="${r.y+39}">Heimat Wanderer</text>`:i===HOME[1]?`<text class="home" x="${r.x}" y="${r.y+39}">Heimat Schatten</text>`:''}</g>`;
+  });
+  return h+'</svg></div>';
+}
+function tilesHTML(){
+  const me=actorSeat();
+  const t=S.tilesOpen.map(ti=>{const x=TILES[ti];return `<button class="tile" data-act="tile" data-t="${ti}" aria-pressed="${ui.sel&&ui.sel.k==='tile'&&ui.sel.t===ti}">
+    <span class="tn">${ic('fort')} ${esc(x.n)}</span><span class="tr">Festung in ${REG[x.r].n}</span>
+    <span class="tc">${x.sk.map(s=>ic(s)).join('')}${me>=0&&S.current===me?`<span class="muted" style="font-size:.78rem"> · kostet dich ${tileCost(me,ti).total}</span>`:''}</span>
+    <span class="te">${x.d}</span></button>`;}).join('');
+  return `<section class="panel"><p class="eyebrow">Ortsplättchen</p><div class="tiles">${t||'<span class="none">Diese Runde keine mehr offen – im nächsten Kapitel werden neue aufgedeckt.</span>'}</div></section>`;
+}
+function pyramidHTML(){
+  const L=LAYOUT[S.chapter-1];
+  let minX=99,maxX=-99;L.rows.forEach(r=>r.forEach(x=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);}));
+  const halfSpan=(maxX-minX)/2,step=1.07,ratio=1.38,vstep=.52;
+  const totW=halfSpan*step+1,totH=(L.rows.length-1)*vstep*ratio+ratio;
+  const me=actorSeat();
+  let h=`<div class="pyr" style="max-width:${halfSpan>4?540:380}px;aspect-ratio:${totW}/${totH}">`;
+  S.slots.forEach((s,i)=>{
+    if(s.gone)return;
+    const left=((s.x-minX)/2*step)/totW*100,top=(s.row*vstep*ratio)/totH*100,w=100/totW,hh=ratio/totH*100;
+    const st=`left:${left}%;top:${top}%;width:${w}%;height:${hh}%`;
+    if(!s.up){h+=`<span class="kc back" style="${st}" aria-label="verdeckte Karte"><span class="kci"><span class="bk">${['I','II','III'][S.chapter-1]}</span></span></span>`;return;}
+    const card=C[s.c],av=avail(i);
+    const sel=ui.sel&&ui.sel.k==='slot'&&ui.sel.i===i;
+    const dim=!av||(me>=0&&S.current===me&&S.phase==='turn'&&cardCost(me,card).total>S.coins[me]);
+    h+=`<button class="kc c-${card.c}${sel?' sel':''}${!av?' dim':''}" style="${st}" data-act="slot" data-i="${i}" ${av?'':'disabled'} aria-label="${esc(card.n)}: ${esc(effText(card))}${dim&&av?' (zu teuer)':''}">${cardInner(card)}</button>`;
+  });
+  return `<section class="pyr-wrap" aria-label="Kartenauslage Kapitel ${S.chapter}">${h}</div>
+    <p class="muted" style="font-size:.82rem;text-align:center;margin-top:8px">Nur Karten, die von keiner anderen Karte bedeckt sind, können genommen werden. Tippe eine Karte an.</p></section>`;
+}
+function detailHTML(){
+  if(!ui.sel)return '';
+  const me=actorSeat(),myTurn=me>=0&&S.phase==='turn'&&S.current===me;
+  if(ui.sel.k==='slot'){
+    const s=S.slots[ui.sel.i];if(!s||s.gone||!s.up||!avail(ui.sel.i)){ui.sel=null;return '';}
+    const card=C[s.c];
+    let costLine=`Kosten: ${card.cost.coins?card.cost.coins+' Münzen'+(card.cost.sk.length?', ':''):''}${card.cost.sk.length||!card.cost.coins?skText(card.cost.sk):''}.`;
+    if(card.cin)costLine+=` Kostenlos mit Verkettung ${ic(card.cin)} ${CHAIN[card.cin]}.`;
+    let pay='',btns='';
+    if(myTurn){
+      const c=cardCost(me,card);
+      pay=c.chain?'Für dich kostenlos (Verkettung).':`Für dich: ${c.total} ${plural(c.total,'Münze','Münzen')}${c.missing?` (darin ${c.missing} für fehlende ${plural(c.missing,'Fertigkeit','Fertigkeiten')})`:''}. Du hast ${S.coins[me]}.`;
+      const n=S.chapter+perm(me).sell;
+      btns=`<div class="row"><button class="btn p${me}" data-act="play" ${canPlay(me,ui.sel.i)?'':'disabled'}>Ausspielen${c.total?` (−${c.total})`:''}</button><button class="btn ghost" data-act="sell">Verkaufen (+${n})</button><button class="link" data-act="unsel">Schließen</button></div>`;
+    } else btns=`<div class="row"><button class="link" data-act="unsel">Schließen</button></div>`;
+    return `<section class="panel"><div class="detail"><div class="bigcard"><span class="kc c-${card.c}">${cardInner(card)}</span></div>
+      <div class="dl"><span class="ty">${COL[card.c].s} ${COL[card.c].n} · Kapitel ${card.ch}</span><h3>${esc(card.n)}</h3>
+      <p><b>${effText(card)}</b></p><p class="muted">${costLine}${card.cout?` Gibt Verkettung ${ic(card.cout)} ${CHAIN[card.cout]} für spätere Kapitel.`:''}</p>
+      ${pay?`<p>${pay}</p>`:''}${btns}</div></div></section>`;
+  }
+  if(ui.sel.k==='tile'){
+    const ti=ui.sel.t;if(!S.tilesOpen.includes(ti)){ui.sel=null;return '';}
+    const t=TILES[ti];let pay='',btns='';
+    if(myTurn){const c=tileCost(me,ti);pay=`Für dich: ${c.total} ${plural(c.total,'Münze','Münzen')} (${c.missing} für fehlende Fertigkeiten, ${c.fc} für deine Festungen). Du hast ${S.coins[me]}.`;
+      btns=`<div class="row"><button class="btn p${me}" data-act="taketile" ${canTile(me,ti)?'':'disabled'}>Nehmen${c.total?` (−${c.total})`:''}</button><button class="link" data-act="unsel">Schließen</button></div>`;}
+    else btns=`<div class="row"><button class="link" data-act="unsel">Schließen</button></div>`;
+    return `<section class="panel"><div class="dl"><span class="ty">Ortsplättchen</span><h3>${ic('fort')} ${esc(t.n)}</h3>
+      <p><b>Baue eine Festung in ${REG[t.r].n}. ${t.d}.</b></p>
+      <p class="muted">Kosten: ${skText(t.sk)}, dazu 1 Münze pro Festung, die du schon auf der Karte hast.</p>${pay?`<p>${pay}</p>`:''}${btns}</div></section>`;
+  }
+  return '';
+}
+function askHTML(){
+  const a=S.ask,side=S.current;
+  const rb=opts=>`<div class="row">${opts.map(r=>`<button class="btn ghost small" data-act="region" data-r="${r}">${REG[r].n}</button>`).join('')}</div>`;
+  let title='',body='',extra='';
+  if(a.t==='units'||a.t==='unitsPresent'){title=`Wohin mit ${a.n} ${plural(a.n,'Einheit','Einheiten')}?`;body=`Tippe ein leuchtendes Gebiet auf der Karte an.`+rb(a.opts);}
+  else if(a.t==='move'){
+    if(a.from==null){title='Bewegung: Welche Einheit?';body='Wähle das Gebiet, aus dem eine deiner Einheiten losziehen soll.'+rb(a.opts);}
+    else{title=`Bewegung von ${REG[a.from].n} – wohin?`;body='Wähle ein benachbartes Gebiet.'+rb(a.opts);}
+    extra=`<button class="link" data-act="skip">${a.from==null?'Diese Bewegung auslassen':'Andere Einheit wählen'}</button>`;
+  }
+  else if(a.t==='kill'){title='Gegnerische Einheit entfernen';body='Wähle das Gebiet.'+rb(a.opts);}
+  else if(a.t==='alliance'){
+    title=a.mode==='pair'?'Bündnis: wähle einen Marker':'Bündnis mit drei Völkern: wähle einen Marker';
+    body='<div class="opts">'+a.opts.map(id=>`<button class="opt" data-act="marker" data-m="${id}"><span class="chip mk">${ic(MK[id].v)}</span><span><b>${VOLK[MK[id].v]}</b><br>${MK[id].d}</span></button>`).join('')+'</div>';
+  }
+  return `<section class="panel p${side}"><p class="eyebrow">Du bist dran</p><h2>${title}</h2><div class="opts" style="gap:10px">${body}</div>${extra}</section>`;
+}
+function statusHTML(){
+  const me=actorSeat(),cur=S.current;
+  if(S.phase==='over')return resultHTML();
+  if(S.online&&me!==cur){
+    return `<section class="panel p${cur}"><div class="wait"><span class="dot"></span><h2>${nm(cur)} ist am Zug</h2></div>
+      <p class="muted">${S.phase==='ask'?`${nm(cur)} trifft gerade eine Auswahl. `:''}Die Seite aktualisiert sich von selbst. Du kannst Karten antippen, um sie anzusehen.</p></section>`;
+  }
+  if(S.phase==='ask')return askHTML();
+  return `<section class="panel p${cur}"><p class="eyebrow">${S.online?'Du bist dran':nm(cur)+' ist dran'}</p>
+    <p class="hint">Nimm eine offene Karte aus der Auslage (ausspielen oder verkaufen) oder ein Ortsplättchen.</p></section>`;
+}
+function resultHTML(){
+  const r=S.result,me=actorSeat(),seated=!S.online||me>=0;
+  const why={pfad:'Entscheidung auf dem Pfad',volk:'Unterstützung von sechs Völkern',land:'in allen sieben Gebieten vertreten',gebiete:`nach drei Kapiteln in mehr Gebieten vertreten (${presence(0)} zu ${presence(1)})`,gleich:`gleich viele Gebiete (${presence(0)} zu ${presence(1)})`}[r.reason];
+  let head;
+  if(r.winner===null)head=`Ihr teilt euch den Sieg!<small>${why}</small>`;
+  else if(r.reason==='pfad')head=`${nm(r.winner)} gewinnt!<small>${r.winner===0?'Die Laterne hat den Leuchtturm erreicht.':'Der Schatten hat die Laterne eingeholt.'}</small>`;
+  else head=`${nm(r.winner)} gewinnt!<small>${why}</small>`;
+  return `<section class="panel${r.winner!=null?' p'+r.winner:''}"><p class="eyebrow">Spielende</p><div class="result">${head}</div>
+    ${seated?`<div class="row"><button class="btn" data-act="rematch">Revanche mit getauschten Seiten</button><button class="btn ghost" data-act="home">Zum Start</button></div>`:''}</section>`;
+}
+function inviteHTML(){
+  if(!S.online||mySeat()<0)return '';
+  const open=[0,1].filter(p=>!S.seats[p]);if(!open.length)return '';
+  const o=open[0];
+  return `<section class="panel p${o}"><p class="eyebrow">Einladen</p><h2>Schick ${nm(o)} diesen Link</h2>
+    <p class="muted">${nm(o)} öffnet ihn auf dem eigenen Gerät und tippt auf „Ich bin ${nm(o)}“.</p>
+    <div class="invite"><input id="invite-link" type="text" readonly value="${esc(inviteUrl())}" aria-label="Einladungslink"><button class="btn" data-act="copy">${ui.copied?'Kopiert':'Link kopieren'}</button></div></section>`;
+}
+function joinHTML(){
+  if(!S.online||mySeat()>=0)return '';
+  const open=[0,1].filter(p=>!S.seats[p]);
+  if(open.length)return `<section class="panel p${open[0]}"><p class="eyebrow">Einladung</p><h2>Mitspielen</h2>
+    <p>${open.length===2?'Das Spiel ist eröffnet.':`<b>${nm(1-open[0])}</b> hat das Spiel eröffnet und wartet auf dich.`}</p>
+    <div class="row">${open.map(p=>`<button class="btn p${p}" data-act="join" data-seat="${p}">Ich bin ${nm(p)}</button>`).join('')}</div></section>`;
+  return `<section class="panel"><p class="eyebrow">Zuschauen</p><p>Hier spielen <b>${nm(0)}</b> und <b>${nm(1)}</b>. Falls du eine der beiden Personen bist und nur das Gerät gewechselt hast, übernimm deinen Platz:</p>
+    <div class="row">${[0,1].map(p=>`<button class="btn ghost small p${p}" data-act="join" data-seat="${p}">Ich bin ${nm(p)}</button>`).join('')}</div></section>`;
+}
+function rulesHTML(open=false){
+  return `<details ${open?'open':''}><summary>Kurzregeln</summary><ul>
+  <li>Drei Kapitel. In jedem liegen 20 Karten aus, teils offen, teils verdeckt. Wer dran ist, nimmt <b>eine offene Karte, die nicht bedeckt ist</b>, oder <b>ein Ortsplättchen</b>. Der Schatten fängt an.</li>
+  <li>Eine Karte kannst du <b>ausspielen</b> (Kosten zahlen, Wirkung sofort) oder <b>verkaufen</b> (Kapitel 1: 1 Münze, Kapitel 2: 2, Kapitel 3: 3). Danach werden frei gewordene Karten aufgedeckt.</li>
+  <li><b>Kosten:</b> Münzen zahlst du direkt. Für jede verlangte Fertigkeit, die dir fehlt, zahlst du 1 Münze. Jedes Fertigkeits-Symbol nutzt du pro Zug nur einmal. Hast du eine Karte mit dem passenden <b>Verkettungs-Symbol</b>, ist die neue Karte gratis.</li>
+  <li><b>Ortsplättchen:</b> kosten ihre Fertigkeiten plus 1 Münze pro Festung, die du schon hast. Du baust sofort eine Festung im genannten Gebiet und bekommst den Bonus. Im nächsten Kapitel wird auf 3 offene Plättchen aufgefüllt.</li>
+  <li><b>Farben:</b> Grau = Fertigkeiten, Gelb = Münzen, Blau = Pfadschritte, Grün = Völker, Rot = Einheiten in eines von zwei Gebieten, Lila (nur Kapitel 3) = Bewegungen, Einheiten entfernen, Münzen stehlen.</li>
+  <li><b>Kampf:</b> Kommen Einheiten in ein Gebiet mit gegnerischen Einheiten, wird paarweise je eine auf beiden Seiten entfernt, bis nur noch eine Seite dort steht. Festungen kämpfen nicht und blockieren nicht.</li>
+  <li><b>Bündnisse:</b> Sobald du 2 gleiche Völker hast, ziehst du die obersten 2 Marker dieses Volks und behältst einen. Einmal pro Partie, sobald du 3 verschiedene Völker hast, ziehst du je den obersten Marker dieser 3 Völker und behältst einen.</li>
+  <li><b>Sofortiger Sieg:</b> (1) Pfad: Die Laterne erreicht den Leuchtturm (Wanderer) oder der Schatten holt sie ein (Abstand 0). (2) 6 verschiedene Völker (der Falken-Marker zählt mit). (3) In allen 7 Gebieten vertreten (Einheit oder Festung).</li>
+  <li>Sonst gewinnt nach Kapitel 3, wer in mehr Gebieten vertreten ist. Gleichstand: geteilter Sieg.</li>
+  </ul>
+  <div class="legend">${Object.keys(COL).map(c=>`<span class="c-${c}"><span class="sw"></span>${COL[c].s} ${COL[c].n}</span>`).join('')}</div>
+  <div class="legend">${SKK.map(s=>`<span>${ic(s)} ${SK[s]}</span>`).join('')}</div>
+  <div class="legend">${VK.map(v=>`<span>${ic(v)} ${VOLK[v]}</span>`).join('')}<span>${ic('falke')} Falke</span></div>
+  </details>`;
+}
+function syncTurnKey(){
+  const key=`${S.chapter}|${S.current}|${S.phase}|${S.slots.filter(s=>s.gone).length}|${S.tilesOpen.join()}`;
+  if(key!==ui.turnKey){ui.turnKey=key;if(ui.sel&&ui.sel.k==='slot'&&(S.slots[ui.sel.i]||{}).gone)ui.sel=null;}
+}
+function render(){
+  const app=document.getElementById('app');
+  if(!S){document.title='Lichtpfad';app.innerHTML=toastHTML()+(mode==='online'?onlineEmptyHTML():setupHTML());return;}
+  syncTurnKey();
+  const me=actorSeat(),v=S.online?(me>=0?me:0):S.current;
+  const myTurn=S.online&&me>=0&&S.phase!=='over'&&S.current===me;
+  document.title=myTurn?'● Du bist dran – Lichtpfad':'Lichtpfad';
+  let hot=[];
+  if(S.phase==='ask'&&S.ask&&S.ask.t!=='alliance'&&(!S.online||me===S.current))hot=S.ask.opts;
+  let h=headerHTML()+toastHTML()+inviteHTML()+joinHTML();
+  h+=pbarHTML(1-v,false)+trackHTML()+statusHTML();
+  if(S.phase==='over'||hot.length)h+=mapHTML(hot);
+  if(S.phase!=='over'){h+=detailHTML()+pyramidHTML()+tilesHTML();if(!hot.length)h+=mapHTML(hot);}
+  h+=pbarHTML(v,S.online&&me>=0);
+  h+=`<div class="last">${S.log.slice(0,4).map(l=>`<span>${l}</span>`).join('')}</div>`;
+  h+=rulesHTML();
+  app.innerHTML=h;saveLocal();
+}
+function heroHTML(text){return `<section class="hero"><p class="eyebrow">Für zwei · etwa 30 Minuten</p><h1>Lichtpfad</h1><p>${text}</p></section>`;}
+function onlineEmptyHTML(){
+  let msg,btn='';
+  if(net.ended){msg='Dieses Spiel wurde beendet.';btn=`<div class="row"><button class="btn" data-act="home">Neues Spiel eröffnen</button></div>`;}
+  else if(net.libMissing){msg='Die Verbindung konnte nicht geladen werden. Prüfe das Internet und lade die Seite neu.';btn=`<div class="row"><button class="btn" data-act="home">Zum Start</button></div>`;}
+  else if(net.notFound){msg='Zu diesem Link ist noch kein Spielstand angekommen. Entweder ist die Verbindung gerade schlecht – die Seite versucht es weiter –, oder der Link ist unvollständig.';btn=`<div class="row"><button class="btn ghost" data-act="home">Neues Spiel eröffnen</button></div>`;}
+  else msg='Spielstand wird geladen …';
+  return heroHTML('Die Wanderer tragen die letzte Laterne zum Leuchtturm. Der Schatten will sie einholen.')+
+    `<section class="panel"><div class="wait">${net.ended||net.libMissing?'':'<span class="dot" style="--pc:var(--gold)"></span>'}<p>${msg}</p></div>${connHTML()}${btn}</section>`;
+}
+function setupHTML(){
+  const online=mode==='setup';
+  const saved=online?null:fetchStore(LOCAL_KEY);
+  return heroHTML('Die Wanderer tragen die letzte Laterne zum Leuchtturm, der Schatten will sie einholen – und beide ringen um sieben Gebiete und die Gunst von sechs Völkern. Drei Wege zum Sieg, drei Kapitel. '+(online?'Jeder spielt auf dem eigenen Gerät, ganz ohne Anmeldung.':'Ihr spielt an einem Gerät.'))+
+    (saved&&saved.phase&&saved.phase!=='over'?`<section class="panel"><p><b>Ein angefangenes Spiel an diesem Gerät ist gespeichert</b> (${esc(saved.names[0])} gegen ${esc(saved.names[1])}, Kapitel ${saved.chapter}).</p><div class="row"><button class="btn" data-act="resume">Weiterspielen</button></div></section>`:'')+
+    `<section class="panel"><h2>${online?'Online-Spiel eröffnen':'Spiel an einem Gerät'}</h2>
+      <div class="form">${[0,1].map(p=>`<div class="field p${p}"><label for="name-${p}">${SIDE[p].n}${p===1?' (fängt an)':''}</label>
+        <input type="text" id="name-${p}" maxlength="16" placeholder="Vorname" value="${esc(ui.names[p])}">
+        ${online?`<label class="choice"><input type="radio" name="seat" value="${p}" ${ui.seat===p?'checked':''}> das bin ich</label>`:''}</div>`).join('')}</div>
+      ${online?'<p class="muted">Danach bekommst du einen Link, den du der anderen Person schickst.</p>':''}
+      <div class="row"><button class="btn" data-act="start">${online?'Spiel eröffnen':'Spiel beginnen'}</button>
+      <button class="link" data-act="${online?'toLocal':'toOnline'}">${online?'Lieber an einem Gerät spielen':'Zurück zum Online-Spiel'}</button></div></section>
+    ${rulesHTML(true)}`;
+}
+
+/* ================= Eingaben ================= */
+document.addEventListener('input',e=>{if(e.target.id==='name-0')ui.names[0]=e.target.value;if(e.target.id==='name-1')ui.names[1]=e.target.value;});
+document.addEventListener('change',e=>{if(e.target.name==='seat')ui.seat=+e.target.value;});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest&&e.target.closest('g[data-act]')){e.preventDefault();e.target.closest('g[data-act]').dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');if(!t||t.disabled)return;
+  const act=t.dataset.act;
+  if(act==='toastx'){ui.toast='';render();return;}
+  if(act==='home'){goHome();return;}
+  if(act==='toLocal'){mode='local';render();return;}
+  if(act==='toOnline'){mode='setup';render();return;}
+  if(act==='copy'){
+    const inp=document.getElementById('invite-link');
+    const done=()=>{ui.copied=true;render();setTimeout(()=>{ui.copied=false;render();},2500);};
+    try{navigator.clipboard.writeText(inviteUrl()).then(done,()=>{inp.select();});}catch(err){inp.select();}
+    return;
+  }
+  if(act==='start'){
+    const names=ui.names.map((n,i)=>n.trim()||SIDE[i].n);
+    if(names[0]===names[1])names[1]+=' 2';
+    if(mode==='setup'){
+      net.gameId=rand(14);history.replaceState(null,'',location.pathname+location.search+'#'+net.gameId);
+      mode='online';const seats=[null,null];seats[ui.seat]=net.myId;
+      S=null;newGame(names,seats);commit();connectOnline();
+    } else {S=null;newGame(names,null);commit();}
+    ui.confirmQuit=false;scrollTo(0,0);return;
+  }
+  if(act==='resume'){S=fetchStore(LOCAL_KEY);render();return;}
+  if(!S)return;
+  const me=actorSeat();
+  switch(act){
+    case 'join':{S.seats[+t.dataset.seat]=net.myId;commit();return;}
+    case 'askquit':ui.confirmQuit=true;break;
+    case 'noquit':ui.confirmQuit=false;break;
+    case 'quit':ui.names=S.names.slice();ui.confirmQuit=false;if(S.online){endOnline();return;}S=null;store(LOCAL_KEY,null);break;
+    case 'slot':{const i=+t.dataset.i;ui.sel=ui.sel&&ui.sel.k==='slot'&&ui.sel.i===i?null:{k:'slot',i};break;}
+    case 'tile':{const ti=+t.dataset.t;ui.sel=ui.sel&&ui.sel.k==='tile'&&ui.sel.t===ti?null:{k:'tile',t:ti};break;}
+    case 'unsel':ui.sel=null;break;
+    case 'play':if(!ui.sel||ui.sel.k!=='slot'||!canPlay(me,ui.sel.i))return;playCard(ui.sel.i);ui.sel=null;commit();return;
+    case 'sell':if(!ui.sel||ui.sel.k!=='slot'||S.phase!=='turn'||S.current!==me||!avail(ui.sel.i)||!S.slots[ui.sel.i].up)return;sellCard(ui.sel.i);ui.sel=null;commit();return;
+    case 'taketile':if(!ui.sel||ui.sel.k!=='tile'||!canTile(me,ui.sel.t))return;takeTile(ui.sel.t);ui.sel=null;commit();return;
+    case 'region':if(S.phase!=='ask'||S.current!==me)return;choose(+t.dataset.r);commit();return;
+    case 'marker':if(S.phase!=='ask'||S.current!==me)return;choose(+t.dataset.m);commit();return;
+    case 'skip':if(S.phase!=='ask'||S.current!==me)return;skipAsk();commit();return;
+    case 'rematch':{if(!S.result)return;const names=[S.names[1],S.names[0]];const seats=S.online?[S.seats[1],S.seats[0]]:null;newGame(names,seats);commit();scrollTo(0,0);return;}
+  }
+  render();
+});
+window.addEventListener('hashchange',()=>location.reload());
+
+(function boot(){
+  net.myId=deviceId();
+  const id=location.hash.replace(/^#/,'');
+  if(/^[a-z0-9]{8,32}$/.test(id)){
+    net.gameId=id;mode='online';
+    const cached=fetchStore(cacheKey());
+    if(cached&&cached.ended){net.ended=true;net.endedRev=cached.rev;}else if(cached&&cached.names){S=cached;}
+    render();connectOnline();
+  } else {mode='setup';render();}
+})();
+</script>
+</body>
+</html>
